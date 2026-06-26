@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { fileAttachmentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { getDriveFolderId, uploadFileToDrive, deleteFileFromDrive, downloadObjectAsBuffer } from "../lib/googleDrive";
 
 const router: IRouter = Router();
 
@@ -48,6 +49,9 @@ router.post("/attachments", async (req: Request, res: Response) => {
     }).returning();
 
     res.status(201).json(created);
+
+    // Async Drive sync — does not block the response
+    syncToDrive(created.id, objectPath, originalName, mimeType, req.log).catch(() => {});
   } catch (err) {
     req.log.error({ err }, "Error saving attachment");
     res.status(500).json({ error: "Failed to save attachment" });
@@ -57,12 +61,41 @@ router.post("/attachments", async (req: Request, res: Response) => {
 router.delete("/attachments/:id", async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
+    const [row] = await db.select().from(fileAttachmentsTable).where(eq(fileAttachmentsTable.id, id));
     await db.delete(fileAttachmentsTable).where(eq(fileAttachmentsTable.id, id));
     res.status(204).end();
+
+    // Async Drive cleanup
+    if (row?.driveFileId) {
+      deleteFileFromDrive(row.driveFileId).catch(() => {});
+    }
   } catch (err) {
     req.log.error({ err }, "Error deleting attachment");
     res.status(500).json({ error: "Failed to delete attachment" });
   }
 });
+
+async function syncToDrive(
+  attachmentId: number,
+  objectPath: string,
+  originalName: string,
+  mimeType: string,
+  log: Request["log"],
+) {
+  const folderId = await getDriveFolderId();
+  if (!folderId) return;
+
+  try {
+    const fileBuffer = await downloadObjectAsBuffer(objectPath);
+    const driveFile = await uploadFileToDrive(fileBuffer, originalName, mimeType, folderId);
+    await db
+      .update(fileAttachmentsTable)
+      .set({ driveFileId: driveFile.id, driveViewLink: driveFile.webViewLink })
+      .where(eq(fileAttachmentsTable.id, attachmentId));
+    log.info({ attachmentId, driveFileId: driveFile.id }, "Synced attachment to Google Drive");
+  } catch (err) {
+    log.error({ err, attachmentId }, "Failed to sync attachment to Google Drive");
+  }
+}
 
 export default router;

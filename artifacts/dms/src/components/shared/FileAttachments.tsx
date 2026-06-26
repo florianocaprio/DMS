@@ -3,7 +3,7 @@ import { useUpload } from "@workspace/object-storage-web";
 import { Button } from "@/components/ui/button";
 import {
   FileText, FileImage, FileArchive, FileSpreadsheet,
-  FileCode, File, Upload, Trash2, Download, Loader2, Paperclip
+  FileCode, File, Upload, Trash2, Download, Loader2, Paperclip, ExternalLink
 } from "lucide-react";
 
 interface Attachment {
@@ -12,6 +12,8 @@ interface Attachment {
   originalName: string;
   mimeType: string;
   fileSize: number;
+  driveFileId?: string | null;
+  driveViewLink?: string | null;
   createdAt: string;
 }
 
@@ -237,9 +239,16 @@ export function FileAttachments({
               <div className="flex-shrink-0">{getFileIcon(a.mimeType)}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-slate-800 truncate">{a.originalName}</p>
-                <p className="text-xs text-slate-400">
-                  {formatBytes(a.fileSize)} · {new Date(a.createdAt).toLocaleDateString("it-IT")}
-                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-xs text-slate-400">
+                    {formatBytes(a.fileSize)} · {new Date(a.createdAt).toLocaleDateString("it-IT")}
+                  </p>
+                  {a.driveFileId && (
+                    <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-px rounded-full font-medium leading-none">
+                      Drive ✓
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
@@ -249,6 +258,18 @@ export function FileAttachments({
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
+                {a.driveViewLink && (
+                  <a
+                    href={a.driveViewLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 rounded hover:bg-blue-100 text-blue-500 hover:text-blue-700 transition-colors"
+                    title="Apri in Google Drive"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
                 {!readonly && (
                   <button
                     onClick={() => handleDelete(a.id)}
