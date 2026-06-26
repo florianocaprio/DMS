@@ -14,6 +14,7 @@ import SignaturesPage from "@/pages/signatures/index";
 import SearchPage from "@/pages/search/index";
 import UsersPage from "@/pages/admin/users";
 import ClassificationsPage from "@/pages/admin/classifications";
+import SettingsPage from "@/pages/admin/settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,6 +39,7 @@ function Router() {
         <Route path="/search" component={SearchPage} />
         <Route path="/admin/users" component={UsersPage} />
         <Route path="/admin/classifications" component={ClassificationsPage} />
+        <Route path="/admin/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

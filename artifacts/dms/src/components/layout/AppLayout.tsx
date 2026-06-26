@@ -30,6 +30,7 @@ const navigation = [
 const adminNavigation = [
   { name: "Utenti", href: "/admin/users", icon: Users },
   { name: "Titolario", href: "/admin/classifications", icon: BookOpen },
+  { name: "Impostazioni", href: "/admin/settings", icon: Settings },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
