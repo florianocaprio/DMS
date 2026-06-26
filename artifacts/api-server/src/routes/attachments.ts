@@ -87,7 +87,7 @@ async function syncToDrive(
 
   try {
     const fileBuffer = await downloadObjectAsBuffer(objectPath);
-    const driveFile = await uploadFileToDrive(fileBuffer, originalName, mimeType, folderId);
+    const driveFile = await uploadFileToDrive(fileBuffer, originalName, mimeType);
     await db
       .update(fileAttachmentsTable)
       .set({ driveFileId: driveFile.id, driveViewLink: driveFile.webViewLink })

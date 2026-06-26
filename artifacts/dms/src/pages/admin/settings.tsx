@@ -4,7 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Settings, HardDrive, CheckCircle2, AlertCircle, ExternalLink, Save, Trash2, Loader2 } from "lucide-react";
+import {
+  Settings, HardDrive, CheckCircle2, AlertCircle,
+  ExternalLink, Save, Trash2, Loader2, FolderTree,
+} from "lucide-react";
 
 interface AppSettings {
   gdrive_folder_id?: string;
@@ -38,13 +41,17 @@ function parseFolderIdFromUrl(input: string): string {
   return input.trim();
 }
 
+const today = new Date();
+const mm = String(today.getMonth() + 1).padStart(2, "0");
+const MESI = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+const EXAMPLE_PATH = `Archivio-DMS / ${today.getFullYear()} / ${mm} - ${MESI[today.getMonth()]} / ${String(today.getDate()).padStart(2, "0")}`;
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [folderInput, setFolderInput] = useState("");
   const [folderName, setFolderName] = useState("");
 
@@ -64,16 +71,18 @@ export default function SettingsPage() {
     setError(null);
     setSaved(false);
     try {
-      const folderId = parseFolderIdFromUrl(folderInput);
-      if (!folderId) {
-        setError("Inserisci un ID cartella o URL valido.");
-        return;
-      }
-      await saveSetting("gdrive_folder_id", folderId);
-      await saveSetting("gdrive_folder_name", folderName || folderId);
+      const folderId = folderInput.trim() ? parseFolderIdFromUrl(folderInput) : "";
       await saveSetting("gdrive_enabled", "true");
-      setSettings((s) => ({ ...s, gdrive_folder_id: folderId, gdrive_folder_name: folderName || folderId, gdrive_enabled: "true" }));
-      setFolderInput(folderId);
+      if (folderId) {
+        await saveSetting("gdrive_folder_id", folderId);
+        await saveSetting("gdrive_folder_name", folderName || folderId);
+        setSettings((s) => ({ ...s, gdrive_folder_id: folderId, gdrive_folder_name: folderName || folderId, gdrive_enabled: "true" }));
+        setFolderInput(folderId);
+      } else {
+        await deleteSetting("gdrive_folder_id");
+        await deleteSetting("gdrive_folder_name");
+        setSettings((s) => ({ ...s, gdrive_folder_id: undefined, gdrive_folder_name: undefined, gdrive_enabled: "true" }));
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -83,7 +92,7 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleDisconnectDrive() {
+  async function handleDisable() {
     setSaving(true);
     try {
       await deleteSetting("gdrive_folder_id");
@@ -93,13 +102,13 @@ export default function SettingsPage() {
       setFolderInput("");
       setFolderName("");
     } catch {
-      setError("Errore durante la disconnessione.");
+      setError("Errore durante la disattivazione.");
     } finally {
       setSaving(false);
     }
   }
 
-  const isDriveConfigured = Boolean(settings.gdrive_folder_id && settings.gdrive_enabled === "true");
+  const isDriveEnabled = settings.gdrive_enabled === "true";
 
   if (loading) {
     return (
@@ -120,7 +129,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex-1 p-6 max-w-2xl space-y-6">
-
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -130,48 +138,70 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <CardTitle className="text-base">Google Drive</CardTitle>
-                  <CardDescription className="text-xs mt-0">Archiviazione documenti su cartella Drive</CardDescription>
+                  <CardDescription className="text-xs mt-0">Archiviazione automatica con struttura ANNO / MESE / GIORNO</CardDescription>
                 </div>
               </div>
-              {isDriveConfigured ? (
+              {isDriveEnabled ? (
                 <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 text-xs">
-                  <CheckCircle2 className="w-3 h-3" /> Configurato
+                  <CheckCircle2 className="w-3 h-3" /> Attivo
                 </Badge>
               ) : (
                 <Badge variant="outline" className="text-slate-500 gap-1 text-xs">
-                  <AlertCircle className="w-3 h-3" /> Non configurato
+                  <AlertCircle className="w-3 h-3" /> Non attivo
                 </Badge>
               )}
             </div>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-800 space-y-1.5">
-              <p className="font-medium">Come configurare:</p>
-              <ol className="list-decimal ml-4 space-y-1 text-blue-700">
-                <li>Apri Google Drive e vai alla cartella dove vuoi archiviare i documenti</li>
-                <li>Copia l'URL dalla barra del browser (es. <span className="font-mono">drive.google.com/drive/folders/ABC123</span>)</li>
-                <li>Incollalo qui sotto — l'ID cartella verrà estratto automaticamente</li>
-              </ol>
-              <a
-                href="https://drive.google.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-blue-600 hover:underline font-medium mt-1"
-              >
-                Apri Google Drive <ExternalLink className="w-3 h-3" />
-              </a>
+            {/* Tree preview */}
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-2">
+                <FolderTree className="w-3.5 h-3.5" />
+                Struttura cartelle creata automaticamente
+              </div>
+              <div className="font-mono text-xs text-slate-500 space-y-0.5 pl-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-blue-500">📁</span>
+                  <span className="text-slate-700 font-semibold">
+                    {settings.gdrive_folder_name ? settings.gdrive_folder_name : "Root Drive"}
+                  </span>
+                  <span className="text-slate-400 ml-1">(cartella base)</span>
+                </div>
+                <div className="pl-4 flex items-center gap-1">
+                  <span className="text-blue-500">📁</span>
+                  <span className="text-blue-700 font-medium">Archivio-DMS</span>
+                  <span className="text-slate-400 ml-1">(creata automaticamente)</span>
+                </div>
+                <div className="pl-8 flex items-center gap-1">
+                  <span className="text-blue-400">📁</span>
+                  <span>{today.getFullYear()}</span>
+                </div>
+                <div className="pl-12 flex items-center gap-1">
+                  <span className="text-blue-400">📁</span>
+                  <span>{mm} - {MESI[today.getMonth()]}</span>
+                </div>
+                <div className="pl-16 flex items-center gap-1">
+                  <span className="text-blue-400">📁</span>
+                  <span>{String(today.getDate()).padStart(2, "0")}</span>
+                </div>
+                <div className="pl-20 flex items-center gap-1">
+                  <span className="text-slate-400">📄</span>
+                  <span className="text-slate-500 italic">documento.pdf, allegato.docx, …</span>
+                </div>
+              </div>
             </div>
 
+            {/* Folder configuration */}
             <div className="space-y-3">
               <div>
                 <Label className="text-xs text-slate-600 mb-1.5 block">
-                  ID cartella o URL Google Drive
+                  Cartella base (opzionale)
                 </Label>
                 <Input
                   value={folderInput}
                   onChange={(e) => setFolderInput(e.target.value)}
-                  placeholder="https://drive.google.com/drive/folders/... oppure solo l'ID"
+                  placeholder="URL o ID cartella Drive — lascia vuoto per usare la root del Drive"
                   className="text-xs font-mono"
                 />
                 {folderInput && folderInput.includes("/") && (
@@ -179,46 +209,53 @@ export default function SettingsPage() {
                     ID estratto: <span className="font-mono text-slate-600">{parseFolderIdFromUrl(folderInput)}</span>
                   </p>
                 )}
+                <p className="text-xs text-slate-400 mt-1">
+                  La cartella <span className="font-mono font-medium text-slate-600">Archivio-DMS</span> verrà creata qui dentro.
+                  Se lasci vuoto, viene creata nella root del tuo Google Drive.
+                </p>
               </div>
 
               <div>
                 <Label className="text-xs text-slate-600 mb-1.5 block">
-                  Nome cartella (opzionale, solo per riferimento)
+                  Nome cartella (solo per riferimento nell'interfaccia)
                 </Label>
                 <Input
                   value={folderName}
                   onChange={(e) => setFolderName(e.target.value)}
-                  placeholder="es. Archivio ProtocolloDigitale 2026"
+                  placeholder="es. Drive Condiviso Ufficio"
                   className="text-xs"
                 />
               </div>
             </div>
 
             {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
-                {error}
-              </p>
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
             )}
 
-            {isDriveConfigured && (
-              <div className="bg-slate-50 rounded-lg border border-slate-200 px-3 py-2.5 text-xs space-y-1">
-                <p className="text-slate-500 font-medium">Configurazione attiva</p>
-                <p className="text-slate-700">
-                  <span className="text-slate-400">Cartella: </span>
-                  {settings.gdrive_folder_name}
+            {isDriveEnabled && settings.gdrive_folder_id && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 text-xs space-y-1">
+                <p className="text-emerald-700 font-medium">Cartella base configurata</p>
+                <p className="text-emerald-800">{settings.gdrive_folder_name}</p>
+                <p className="font-mono text-[11px] text-emerald-600">{settings.gdrive_folder_id}</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <a
+                    href={`https://drive.google.com/drive/folders/${settings.gdrive_folder_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                  >
+                    Apri cartella base <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {isDriveEnabled && !settings.gdrive_folder_id && (
+              <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 text-xs text-emerald-700">
+                <span className="font-medium">Drive attivo — root di Drive</span>
+                <p className="text-emerald-600 mt-0.5">
+                  La cartella <span className="font-mono">Archivio-DMS</span> viene creata nella root del tuo Google Drive.
                 </p>
-                <p className="text-slate-700 font-mono text-[11px]">
-                  <span className="text-slate-400">ID: </span>
-                  {settings.gdrive_folder_id}
-                </p>
-                <a
-                  href={`https://drive.google.com/drive/folders/${settings.gdrive_folder_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 hover:underline"
-                >
-                  Apri cartella in Drive <ExternalLink className="w-3 h-3" />
-                </a>
               </div>
             )}
 
@@ -226,32 +263,33 @@ export default function SettingsPage() {
               <Button
                 size="sm"
                 onClick={handleSaveDrive}
-                disabled={saving || !folderInput}
+                disabled={saving}
                 className="gap-1.5"
               >
                 {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {saved ? "Salvato!" : "Salva configurazione"}
+                {saved ? "Salvato!" : isDriveEnabled ? "Aggiorna configurazione" : "Attiva integrazione"}
               </Button>
-              {isDriveConfigured && (
+              {isDriveEnabled && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDisconnectDrive}
+                  onClick={handleDisable}
                   disabled={saving}
                   className="gap-1.5 text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  Rimuovi
+                  Disattiva
                 </Button>
               )}
             </div>
 
             <div className="border-t border-slate-100 pt-3">
-              <p className="text-xs text-slate-500 font-medium mb-2">Come viene usata l'integrazione</p>
+              <p className="text-xs text-slate-500 font-medium mb-1.5">Come funziona</p>
               <ul className="text-xs text-slate-400 space-y-1 list-disc ml-4">
-                <li>I documenti archiviati vengono copiati automaticamente nella cartella Drive configurata</li>
-                <li>L'accesso richiede che l'account Google abbia i permessi di scrittura sulla cartella</li>
-                <li>I file originali rimangono nell'archivio interno del sistema</li>
+                <li>Ad ogni allegato caricato, il sistema crea automaticamente la struttura <span className="font-mono text-slate-500">Archivio-DMS / ANNO / MM - Mese / GG</span></li>
+                <li>Se le cartelle esistono già vengono riutilizzate, non duplicate</li>
+                <li>I file originali rimangono nell'archivio interno — Drive è una copia di backup</li>
+                <li>Eliminando un allegato dal DMS, viene rimosso anche da Drive</li>
               </ul>
             </div>
           </CardContent>
