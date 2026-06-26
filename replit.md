@@ -1,45 +1,68 @@
-# [Project name]
+# ProtocolloDigitale
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Sistema di gestione documentale (DMS) per enti non profit e PMI italiane. Registra protocolli in entrata/uscita/interni, gestisce fascicoli, documenti, attività, workflow di approvazione e firme digitali.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `PORT=8080 pnpm --filter @workspace/api-server run dev` — avvia il server API (porta 8080)
+- `PORT=19176 BASE_PATH=/ pnpm --filter @workspace/dms run dev` — avvia il frontend (porta 19176)
+- `pnpm run typecheck` — typecheck completo di tutti i pacchetti
+- `pnpm run build` — typecheck + build di tutti i pacchetti
+- `pnpm --filter @workspace/api-spec run codegen` — rigenera hook e schema Zod dall'OpenAPI spec
+- `pnpm --filter @workspace/db run push` — applica le modifiche allo schema DB (solo dev)
+- `pnpm --filter @workspace/scripts run seed` — inserisce i dati demo nel database
+- Env obbligatorie: `DATABASE_URL`, `SESSION_SECRET`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- API: Express 5 (porta 8080, path `/api`)
+- Frontend: React + Vite (porta 19176, path `/`)
 - DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
+- Validazione: Zod (`zod/v4`), `drizzle-zod`
+- API codegen: Orval (da OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/db/src/schema/` — sorgente di verità per lo schema DB (users, classifications, dossiers, documents, protocols, tasks, workflows, signatures, assignments/activity_log)
+- `lib/api-spec/openapi.yaml` — contratto OpenAPI, sorgente di verità per l'API
+- `lib/api-client-react/src/generated/api.ts` — hook React Query generati da Orval
+- `artifacts/api-server/src/routes/` — route Express per ogni risorsa
+- `artifacts/dms/src/pages/` — pagine React del frontend
+- `artifacts/dms/src/components/shared/status-badges.tsx` — badge colorati per stato/tipo/priorità
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **OpenAPI-first**: tutte le route sono definite in `openapi.yaml` prima di essere implementate; i client usano hook generati da Orval.
+- **Utente corrente hardcoded** a `id: 1` (nessuna autenticazione ancora implementata).
+- **Formato numero protocollo**: `AIM-{anno}-{E|U|I|RIS}-{000001}` (E=entrata, U=uscita, I=interno, RIS=riservato).
+- **Formato codice fascicolo**: `FASC-{anno}-{####}`.
+- **Status badge bidirezionale**: i badge gestiscono sia i valori in italiano che in inglese (es. "completed" e "completato"), perché l'API restituisce valori in inglese.
+- **Workflow command con PORT**: sia `api-server` che `dms` richiedono `PORT` nell'env; i workflow Replit includono `PORT=...` nel comando.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Protocolli**: registro in entrata/uscita/interno/riservato con numero progressivo automatico
+- **Documenti**: archivio con versioning, stati e fascicoli associati
+- **Fascicoli**: raccoglitori tematici per organizzare documenti e protocolli
+- **Attività**: task assegnabili con priorità, scadenze e avanzamento
+- **Workflow**: processi di approvazione configurabili per tipo documento
+- **Firme**: gestione richieste di firma digitale su documenti
+- **Ricerca**: full-text search su tutte le entità
+- **Admin**: gestione utenti e titolario di classificazione
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+_Nessuna preferenza esplicita registrata._
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- **PORT obbligatoria**: entrambi i servizi lanciano errore se `PORT` non è impostata nell'env. I workflow devono includere `PORT=...` nel comando.
+- **Seed tramite scripts**: eseguire `pnpm --filter @workspace/scripts run seed` (non `node -e` dalla root, perché `pg` non è disponibile a livello root).
+- **Query hook queryKey**: quando si passa un secondo argomento ai hook Orval con `{ query: {} }`, TypeScript richiede `queryKey` esplicito. Usare sempre `{ query: { queryKey: getXxxQueryKey(...) } }`.
+- **Status badge**: i valori dell'API sono in inglese (`incoming`, `in_progress`, `completed`), ma i badge li traducono automaticamente in italiano.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Vedi la skill `pnpm-workspace` per struttura workspace, TypeScript e dettagli pacchetti

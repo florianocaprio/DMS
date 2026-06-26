@@ -1,22 +1,41 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: DMS - Document Management System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: documents
+    description: Document management
+  - name: protocols
+    description: Protocol register
+  - name: dossiers
+    description: Dossiers and fascicles
+  - name: tasks
+    description: Task management
+  - name: workflows
+    description: Workflow management
+  - name: signatures
+    description: Document signing
+  - name: users
+    description: User management
+  - name: classifications
+    description: Classification and titolario
+  - name: dashboard
+    description: Dashboard and statistics
+  - name: search
+    description: Document search
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +43,993 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # --- DASHBOARD ---
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/my-items:
+    get:
+      operationId: getMyDashboardItems
+      tags: [dashboard]
+      summary: Get personal dashboard items
+      responses:
+        "200":
+          description: Personal dashboard items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyDashboardItems"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  # --- DOCUMENTS ---
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List documents
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: dossierId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: assignedToMe
+          in: query
+          schema:
+            type: ["boolean", "null"]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentList"
+    post:
+      operationId: createDocument
+      tags: [documents]
+      summary: Create a new document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentInput"
+      responses:
+        "201":
+          description: Created document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      summary: Get document by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateDocument
+      tags: [documents]
+      summary: Update document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentUpdate"
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Archive/delete document (logical)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /documents/{id}/status:
+    patch:
+      operationId: updateDocumentStatus
+      tags: [documents]
+      summary: Update document status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentStatusUpdate"
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}/versions:
+    get:
+      operationId: getDocumentVersions
+      tags: [documents]
+      summary: Get document version history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentVersion"
+
+  /documents/{id}/assignments:
+    post:
+      operationId: assignDocument
+      tags: [documents]
+      summary: Assign document to users
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentInput"
+      responses:
+        "200":
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  # --- PROTOCOLS ---
+  /protocols:
+    get:
+      operationId: listProtocols
+      tags: [protocols]
+      summary: List protocols
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: dossierId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: assignedToMe
+          in: query
+          schema:
+            type: ["boolean", "null"]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Protocol list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProtocolList"
+    post:
+      operationId: createProtocol
+      tags: [protocols]
+      summary: Create and register a new protocol
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProtocolInput"
+      responses:
+        "201":
+          description: Created protocol
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Protocol"
+
+  /protocols/{id}:
+    get:
+      operationId: getProtocol
+      tags: [protocols]
+      summary: Get protocol by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Protocol
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Protocol"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateProtocol
+      tags: [protocols]
+      summary: Update protocol metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProtocolUpdate"
+      responses:
+        "200":
+          description: Updated protocol
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Protocol"
+
+  /protocols/{id}/cancel:
+    post:
+      operationId: cancelProtocol
+      tags: [protocols]
+      summary: Cancel (annul) a protocol
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelProtocolInput"
+      responses:
+        "200":
+          description: Cancelled protocol
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Protocol"
+
+  /protocols/summary:
+    get:
+      operationId: getProtocolSummary
+      tags: [protocols]
+      summary: Get protocol counts grouped by type and status
+      responses:
+        "200":
+          description: Protocol summary counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProtocolSummary"
+
+  # --- DOSSIERS ---
+  /dossiers:
+    get:
+      operationId: listDossiers
+      tags: [dossiers]
+      summary: List dossiers
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: responsibleId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Dossier list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DossierList"
+    post:
+      operationId: createDossier
+      tags: [dossiers]
+      summary: Create a new dossier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DossierInput"
+      responses:
+        "201":
+          description: Created dossier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dossier"
+
+  /dossiers/{id}:
+    get:
+      operationId: getDossier
+      tags: [dossiers]
+      summary: Get dossier by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dossier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dossier"
+    patch:
+      operationId: updateDossier
+      tags: [dossiers]
+      summary: Update dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DossierUpdate"
+      responses:
+        "200":
+          description: Updated dossier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dossier"
+
+  /dossiers/{id}/documents:
+    get:
+      operationId: getDossierDocuments
+      tags: [dossiers]
+      summary: List documents in a dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Documents in dossier
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+
+  # --- TASKS ---
+  /tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: List tasks
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: assignedToMe
+          in: query
+          schema:
+            type: ["boolean", "null"]
+        - name: protocolId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: dossierId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: priority
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Task list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create a new task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: Created task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /tasks/{id}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get task by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Update task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /tasks/overdue:
+    get:
+      operationId: getOverdueTasks
+      tags: [tasks]
+      summary: Get overdue tasks
+      responses:
+        "200":
+          description: Overdue tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+
+  # --- WORKFLOWS ---
+  /workflows:
+    get:
+      operationId: listWorkflows
+      tags: [workflows]
+      summary: List workflow definitions
+      responses:
+        "200":
+          description: Workflows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workflow"
+    post:
+      operationId: createWorkflow
+      tags: [workflows]
+      summary: Create a workflow definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowInput"
+      responses:
+        "201":
+          description: Created workflow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+
+  /workflows/{id}:
+    get:
+      operationId: getWorkflow
+      tags: [workflows]
+      summary: Get workflow definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workflow
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+
+  /document-workflows:
+    get:
+      operationId: listDocumentWorkflows
+      tags: [workflows]
+      summary: List active document workflow instances
+      parameters:
+        - name: documentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active workflows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DocumentWorkflow"
+    post:
+      operationId: startDocumentWorkflow
+      tags: [workflows]
+      summary: Start a workflow on a document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartWorkflowInput"
+      responses:
+        "201":
+          description: Started workflow instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentWorkflow"
+
+  /document-workflows/{id}/advance:
+    post:
+      operationId: advanceWorkflowStep
+      tags: [workflows]
+      summary: Advance or reject a workflow step
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowStepOutcome"
+      responses:
+        "200":
+          description: Updated workflow instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentWorkflow"
+
+  # --- SIGNATURES ---
+  /signatures:
+    get:
+      operationId: listSignatures
+      tags: [signatures]
+      summary: List signature requests
+      parameters:
+        - name: documentId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: pendingForMe
+          in: query
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: Signature requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SignatureRequest"
+    post:
+      operationId: createSignatureRequest
+      tags: [signatures]
+      summary: Request signatures on a document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignatureRequestInput"
+      responses:
+        "201":
+          description: Created signature request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignatureRequest"
+
+  /signatures/{id}/sign:
+    post:
+      operationId: signDocument
+      tags: [signatures]
+      summary: Sign or reject a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignatureAction"
+      responses:
+        "200":
+          description: Updated signature request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignatureRequest"
+
+  # --- USERS ---
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+        - name: active
+          in: query
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/me:
+    get:
+      operationId: getCurrentUser
+      tags: [users]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # --- CLASSIFICATIONS ---
+  /classifications:
+    get:
+      operationId: listClassifications
+      tags: [classifications]
+      summary: List titolario classifications
+      responses:
+        "200":
+          description: Classifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Classification"
+    post:
+      operationId: createClassification
+      tags: [classifications]
+      summary: Create classification entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassificationInput"
+      responses:
+        "201":
+          description: Created classification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Classification"
+
+  # --- SEARCH ---
+  /search:
+    get:
+      operationId: searchDocuments
+      tags: [search]
+      summary: Full-text search across documents and protocols
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: dateTo
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: protocolType
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +1040,1182 @@ components:
       required:
         - status
 
+    # --- DASHBOARD ---
+    DashboardStats:
+      type: object
+      required:
+        - protocolsToday
+        - protocolsThisMonth
+        - protocolsIncoming
+        - protocolsOutgoing
+        - protocolsInternal
+        - documentsInProgress
+        - documentsInApproval
+        - documentsInSignature
+        - openTasks
+        - overdueTasks
+        - pendingSignatures
+        - cancelledProtocols
+      properties:
+        protocolsToday:
+          type: integer
+        protocolsThisMonth:
+          type: integer
+        protocolsIncoming:
+          type: integer
+        protocolsOutgoing:
+          type: integer
+        protocolsInternal:
+          type: integer
+        documentsInProgress:
+          type: integer
+        documentsInApproval:
+          type: integer
+        documentsInSignature:
+          type: integer
+        openTasks:
+          type: integer
+        overdueTasks:
+          type: integer
+        pendingSignatures:
+          type: integer
+        cancelledProtocols:
+          type: integer
+
+    MyDashboardItems:
+      type: object
+      required:
+        - assignedDocuments
+        - myTasks
+        - pendingApprovals
+        - pendingSignatures
+        - upcomingDeadlines
+      properties:
+        assignedDocuments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+        myTasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        pendingApprovals:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentWorkflow"
+        pendingSignatures:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignatureRequest"
+        upcomingDeadlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+
+    ActivityItem:
+      type: object
+      required:
+        - id
+        - type
+        - description
+        - userId
+        - userName
+        - timestamp
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        description:
+          type: string
+        userId:
+          type: integer
+        userName:
+          type: string
+        timestamp:
+          type: string
+        documentId:
+          type: ["integer", "null"]
+        protocolNumber:
+          type: ["string", "null"]
+
+    # --- DOCUMENT ---
+    DocumentList:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - limit
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Document:
+      type: object
+      required:
+        - id
+        - title
+        - type
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        subject:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        confidentiality:
+          type: string
+          default: normal
+        priority:
+          type: string
+          default: normal
+        version:
+          type: integer
+          default: 1
+        driveUrl:
+          type: ["string", "null"]
+        fileName:
+          type: ["string", "null"]
+        fileSize:
+          type: ["integer", "null"]
+        mimeType:
+          type: ["string", "null"]
+        dossierId:
+          type: ["integer", "null"]
+        dossierTitle:
+          type: ["string", "null"]
+        protocolId:
+          type: ["integer", "null"]
+        protocolNumber:
+          type: ["string", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        classificationCode:
+          type: ["string", "null"]
+        responsibleId:
+          type: ["integer", "null"]
+        responsibleName:
+          type: ["string", "null"]
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        ocrText:
+          type: ["string", "null"]
+        aiSummary:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        archivedAt:
+          type: ["string", "null"]
+
+    DocumentInput:
+      type: object
+      required:
+        - title
+        - type
+      properties:
+        title:
+          type: string
+          minLength: 1
+        type:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+        confidentiality:
+          type: string
+        priority:
+          type: string
+        dossierId:
+          type: ["integer", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        responsibleId:
+          type: ["integer", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        driveUrl:
+          type: string
+        fileName:
+          type: string
+
+    DocumentUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        confidentiality:
+          type: string
+        priority:
+          type: string
+        dossierId:
+          type: ["integer", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        responsibleId:
+          type: ["integer", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        aiSummary:
+          type: string
+
+    DocumentStatusUpdate:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+        note:
+          type: string
+
+    DocumentVersion:
+      type: object
+      required:
+        - id
+        - documentId
+        - version
+        - status
+        - createdAt
+        - createdById
+        - createdByName
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        version:
+          type: integer
+        status:
+          type: string
+        description:
+          type: ["string", "null"]
+        driveUrl:
+          type: ["string", "null"]
+        fileName:
+          type: ["string", "null"]
+        fileHash:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+
+    AssignmentInput:
+      type: object
+      required:
+        - assignments
+      properties:
+        assignments:
+          type: array
+          items:
+            type: object
+            required:
+              - userId
+              - role
+            properties:
+              userId:
+                type: integer
+              role:
+                type: string
+        note:
+          type: string
+
+    # --- PROTOCOL ---
+    ProtocolList:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - limit
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Protocol"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Protocol:
+      type: object
+      required:
+        - id
+        - number
+        - year
+        - type
+        - status
+        - subject
+        - registeredAt
+        - registeredById
+        - registeredByName
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        number:
+          type: string
+        year:
+          type: integer
+        type:
+          type: string
+        status:
+          type: string
+        subject:
+          type: string
+        description:
+          type: ["string", "null"]
+        sender:
+          type: ["string", "null"]
+        recipients:
+          type: array
+          items:
+            type: string
+        ccRecipients:
+          type: array
+          items:
+            type: string
+        channel:
+          type: ["string", "null"]
+        confidentiality:
+          type: string
+          default: normal
+        priority:
+          type: string
+          default: normal
+        dossierId:
+          type: ["integer", "null"]
+        dossierTitle:
+          type: ["string", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        classificationCode:
+          type: ["string", "null"]
+        documentId:
+          type: ["integer", "null"]
+        assignedToId:
+          type: ["integer", "null"]
+        assignedToName:
+          type: ["string", "null"]
+        registeredById:
+          type: integer
+        registeredByName:
+          type: string
+        cancelledAt:
+          type: ["string", "null"]
+        cancelReason:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        driveFolder:
+          type: ["string", "null"]
+        registeredAt:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    ProtocolInput:
+      type: object
+      required:
+        - type
+        - subject
+      properties:
+        type:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+        sender:
+          type: string
+        recipients:
+          type: array
+          items:
+            type: string
+        ccRecipients:
+          type: array
+          items:
+            type: string
+        channel:
+          type: string
+        confidentiality:
+          type: string
+        priority:
+          type: string
+        dossierId:
+          type: ["integer", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        documentId:
+          type: ["integer", "null"]
+        assignedToId:
+          type: ["integer", "null"]
+        notes:
+          type: string
+
+    ProtocolUpdate:
+      type: object
+      properties:
+        subject:
+          type: string
+        description:
+          type: string
+        sender:
+          type: string
+        recipients:
+          type: array
+          items:
+            type: string
+        priority:
+          type: string
+        confidentiality:
+          type: string
+        dossierId:
+          type: ["integer", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        assignedToId:
+          type: ["integer", "null"]
+        notes:
+          type: string
+
+    CancelProtocolInput:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+
+    ProtocolSummary:
+      type: object
+      required:
+        - byType
+        - byStatus
+        - thisYear
+        - thisMonth
+      properties:
+        byType:
+          type: array
+          items:
+            type: object
+            required:
+              - type
+              - count
+            properties:
+              type:
+                type: string
+              count:
+                type: integer
+        byStatus:
+          type: array
+          items:
+            type: object
+            required:
+              - status
+              - count
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+        thisYear:
+          type: integer
+        thisMonth:
+          type: integer
+
+    # --- DOSSIER ---
+    DossierList:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - limit
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dossier"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Dossier:
+      type: object
+      required:
+        - id
+        - code
+        - title
+        - status
+        - year
+        - openedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+        year:
+          type: integer
+        area:
+          type: ["string", "null"]
+        confidentiality:
+          type: string
+          default: normal
+        responsibleId:
+          type: ["integer", "null"]
+        responsibleName:
+          type: ["string", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        classificationCode:
+          type: ["string", "null"]
+        documentCount:
+          type: integer
+          default: 0
+        protocolCount:
+          type: integer
+          default: 0
+        openedAt:
+          type: string
+        closedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    DossierInput:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        area:
+          type: string
+        confidentiality:
+          type: string
+        responsibleId:
+          type: ["integer", "null"]
+        classificationId:
+          type: ["integer", "null"]
+
+    DossierUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        area:
+          type: string
+        confidentiality:
+          type: string
+        responsibleId:
+          type: ["integer", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        closedAt:
+          type: ["string", "null"]
+
+    # --- TASKS ---
+    TaskList:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - limit
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    Task:
+      type: object
+      required:
+        - id
+        - title
+        - status
+        - priority
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+        priority:
+          type: string
+        progress:
+          type: integer
+          default: 0
+        protocolId:
+          type: ["integer", "null"]
+        protocolNumber:
+          type: ["string", "null"]
+        documentId:
+          type: ["integer", "null"]
+        documentTitle:
+          type: ["string", "null"]
+        dossierId:
+          type: ["integer", "null"]
+        dossierTitle:
+          type: ["string", "null"]
+        assignedToId:
+          type: ["integer", "null"]
+        assignedToName:
+          type: ["string", "null"]
+        createdById:
+          type: integer
+        createdByName:
+          type: string
+        dueDate:
+          type: ["string", "null"]
+        completedAt:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        outcome:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    TaskInput:
+      type: object
+      required:
+        - title
+        - priority
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        priority:
+          type: string
+        protocolId:
+          type: ["integer", "null"]
+        documentId:
+          type: ["integer", "null"]
+        dossierId:
+          type: ["integer", "null"]
+        assignedToId:
+          type: ["integer", "null"]
+        dueDate:
+          type: ["string", "null"]
+        notes:
+          type: string
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        progress:
+          type: integer
+        assignedToId:
+          type: ["integer", "null"]
+        dueDate:
+          type: ["string", "null"]
+        notes:
+          type: string
+        outcome:
+          type: string
+
+    # --- WORKFLOWS ---
+    Workflow:
+      type: object
+      required:
+        - id
+        - name
+        - steps
+        - createdAt
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        documentType:
+          type: ["string", "null"]
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowStep"
+        isActive:
+          type: boolean
+          default: true
+        createdAt:
+          type: string
+
+    WorkflowStep:
+      type: object
+      required:
+        - id
+        - name
+        - order
+        - action
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        order:
+          type: integer
+        action:
+          type: string
+        responsibleRole:
+          type: ["string", "null"]
+        dueDays:
+          type: ["integer", "null"]
+        requiredApprovalType:
+          type: string
+          default: single
+
+    WorkflowInput:
+      type: object
+      required:
+        - name
+        - steps
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        documentType:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - order
+              - action
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              order:
+                type: integer
+              action:
+                type: string
+              responsibleRole:
+                type: string
+              dueDays:
+                type: integer
+
+    DocumentWorkflow:
+      type: object
+      required:
+        - id
+        - documentId
+        - workflowId
+        - workflowName
+        - currentStep
+        - status
+        - startedAt
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        documentTitle:
+          type: ["string", "null"]
+        workflowId:
+          type: integer
+        workflowName:
+          type: string
+        currentStep:
+          type: integer
+        totalSteps:
+          type: integer
+        status:
+          type: string
+        startedAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+        currentStepName:
+          type: ["string", "null"]
+        currentStepAction:
+          type: ["string", "null"]
+        currentAssigneeId:
+          type: ["integer", "null"]
+        currentAssigneeName:
+          type: ["string", "null"]
+
+    StartWorkflowInput:
+      type: object
+      required:
+        - documentId
+        - workflowId
+      properties:
+        documentId:
+          type: integer
+        workflowId:
+          type: integer
+        note:
+          type: string
+
+    WorkflowStepOutcome:
+      type: object
+      required:
+        - outcome
+      properties:
+        outcome:
+          type: string
+        note:
+          type: string
+        delegateToId:
+          type: ["integer", "null"]
+
+    # --- SIGNATURES ---
+    SignatureRequest:
+      type: object
+      required:
+        - id
+        - documentId
+        - status
+        - signatories
+        - createdAt
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        documentTitle:
+          type: ["string", "null"]
+        status:
+          type: string
+        type:
+          type: string
+          default: internal
+        signatories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signatory"
+        requestedById:
+          type: integer
+        requestedByName:
+          type: string
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+        expiresAt:
+          type: ["string", "null"]
+
+    Signatory:
+      type: object
+      required:
+        - userId
+        - userName
+        - order
+        - status
+      properties:
+        userId:
+          type: integer
+        userName:
+          type: string
+        order:
+          type: integer
+        status:
+          type: string
+        signedAt:
+          type: ["string", "null"]
+        note:
+          type: ["string", "null"]
+
+    SignatureRequestInput:
+      type: object
+      required:
+        - documentId
+        - signatories
+      properties:
+        documentId:
+          type: integer
+        type:
+          type: string
+          default: internal
+        signatories:
+          type: array
+          items:
+            type: object
+            required:
+              - userId
+              - order
+            properties:
+              userId:
+                type: integer
+              order:
+                type: integer
+        note:
+          type: string
+        expiresAt:
+          type: string
+
+    SignatureAction:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+        note:
+          type: string
+
+    # --- USERS ---
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - role
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        area:
+          type: ["string", "null"]
+        section:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        lastLoginAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    UserInput:
+      type: object
+      required:
+        - email
+        - name
+        - role
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        area:
+          type: string
+        section:
+          type: string
+        avatarUrl:
+          type: string
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+        area:
+          type: string
+        section:
+          type: string
+        isActive:
+          type: boolean
+        avatarUrl:
+          type: string
+
+    # --- CLASSIFICATIONS ---
+    Classification:
+      type: object
+      required:
+        - id
+        - code
+        - title
+        - level
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        level:
+          type: integer
+        parentId:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+          default: true
+
+    ClassificationInput:
+      type: object
+      required:
+        - code
+        - title
+        - level
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        level:
+          type: integer
+        parentId:
+          type: ["integer", "null"]
+
+    # --- SEARCH ---
+    SearchResults:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - limit
+        - query
+      properties:
+        query:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchResult"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    SearchResult:
+      type: object
+      required:
+        - id
+        - resultType
+        - title
+        - status
+        - createdAt
+      properties:
+        id:
+          type: integer
+        resultType:
+          type: string
+        title:
+          type: string
+        subject:
+          type: ["string", "null"]
+        excerpt:
+          type: ["string", "null"]
+        status:
+          type: string
+        protocolNumber:
+          type: ["string", "null"]
+        dossierTitle:
+          type: ["string", "null"]
+        assignedToName:
+          type: ["string", "null"]
+        documentType:
+          type: ["string", "null"]
+        createdAt:
+          type: string

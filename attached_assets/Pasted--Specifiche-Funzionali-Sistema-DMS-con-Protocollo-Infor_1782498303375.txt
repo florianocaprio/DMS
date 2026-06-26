@@ -1,0 +1,1905 @@
+# Specifiche Funzionali
+
+## Sistema DMS con Protocollo Informatico, Workflow, Firma e Integrazione Google Workspace
+
+## 1. Obiettivo del sistema
+
+Il sistema ha l’obiettivo di realizzare una piattaforma web di Document Management System, di seguito DMS, integrata con Google Workspace, finalizzata alla gestione completa del ciclo di vita dei documenti dell’organizzazione.
+
+Il sistema dovrà consentire:
+
+* archiviazione ordinata dei documenti su Google Drive;
+* protocollazione in ingresso, uscita e interna;
+* gestione di fascicoli e pratiche;
+* assegnazione dei protocolli a utenti, gruppi e collaboratori;
+* gestione dei workflow approvativi;
+* gestione della firma dei documenti;
+* invio controllato dei documenti protocollati verso destinatari interni ed esterni;
+* invio automatico di notifiche e riepiloghi via email;
+* ricerca documentale avanzata, anche nel contenuto dei documenti tramite OCR;
+* gestione degli utenti tramite Google Workspace;
+* importazione iniziale dei documenti e dei protocolli provenienti da sistemi preesistenti, incluso Regystrum.
+
+Il sistema dovrà essere pensato per organizzazioni del terzo settore, associazioni, fondazioni, PMI e realtà strutturate che utilizzano Google Workspace come ambiente operativo principale.
+
+---
+
+## 2. Principi funzionali generali
+
+Il sistema dovrà essere:
+
+* semplice da usare;
+* integrato nativamente con Google Workspace;
+* orientato alla gestione per pratica/fascicolo, non solo per singolo documento;
+* sicuro e tracciabile;
+* utilizzabile da utenti non tecnici;
+* configurabile senza modifiche software;
+* estendibile nel tempo;
+* adatto sia all’archiviazione semplice sia a processi approvativi complessi;
+* dotato di audit log completo;
+* predisposto per future integrazioni con PEC, conservazione digitale, firma remota e sistemi esterni.
+
+Il documento non dovrà essere considerato solo come file, ma come oggetto gestionale composto da:
+
+* contenuto digitale;
+* metadati;
+* protocollo;
+* fascicolo;
+* assegnazioni;
+* stati;
+* workflow;
+* task;
+* versioni;
+* firme;
+* notifiche;
+* storico;
+* permessi;
+* collegamenti con altri documenti.
+
+---
+
+## 3. Tipologie di documento gestite
+
+Il sistema dovrà gestire almeno le seguenti tipologie documentali:
+
+* circolari interne;
+* comunicazioni ufficiali;
+* lettere in ingresso;
+* lettere in uscita;
+* verbali;
+* delibere;
+* determine;
+* convenzioni;
+* contratti;
+* richieste di contributo;
+* documentazione bandi;
+* preventivi;
+* fatture;
+* ricevute;
+* rendicontazioni;
+* comunicazioni email;
+* comunicazioni PEC, in una fase successiva;
+* documenti sanitari o sensibili, se autorizzati;
+* documenti relativi ai volontari;
+* documenti relativi alle sezioni territoriali;
+* allegati fotografici;
+* scansioni cartacee;
+* documenti PDF;
+* file Word;
+* file Excel;
+* Google Docs;
+* Google Sheets;
+* immagini;
+* file compressi;
+* altri allegati generici.
+
+Ogni tipologia documentale dovrà poter avere metadati specifici configurabili.
+
+---
+
+## 4. Architettura logica funzionale
+
+Il sistema dovrà essere composto dai seguenti moduli principali:
+
+1. Modulo autenticazione e utenti.
+2. Modulo integrazione Google Workspace.
+3. Modulo archivio documentale.
+4. Modulo protocollo informatico.
+5. Modulo fascicoli e pratiche.
+6. Modulo workflow e task.
+7. Modulo firma documenti.
+8. Modulo notifiche e comunicazioni email.
+9. Modulo ricerca documentale e OCR.
+10. Modulo dashboard e reporting.
+11. Modulo amministrazione.
+12. Modulo importazione/migrazione.
+13. Modulo audit, sicurezza e tracciabilità.
+14. Modulo API e integrazioni future.
+
+---
+
+## 5. Autenticazione e gestione utenti
+
+### 5.1 Login
+
+Il sistema dovrà consentire l’accesso tramite account Google Workspace.
+
+L’utente dovrà autenticarsi con il proprio account del dominio autorizzato.
+
+Il sistema dovrà impedire l’accesso a utenti esterni non autorizzati, anche se in possesso di account Google.
+
+### 5.2 Importazione utenti da Google Workspace
+
+Il sistema dovrà prevedere una funzione amministrativa per importare utenti dal dominio Google Workspace.
+
+L’amministratore dovrà poter:
+
+* visualizzare gli utenti del dominio;
+* filtrare utenti attivi e sospesi;
+* importare singoli utenti;
+* importare gruppi di utenti;
+* sincronizzare periodicamente utenti e gruppi;
+* abilitare o disabilitare utenti nel DMS;
+* associare a ogni utente uno o più ruoli applicativi;
+* associare l’utente a una o più aree organizzative;
+* associare l’utente a una o più sezioni territoriali;
+* visualizzare data ultimo accesso;
+* forzare la revoca applicativa dell’accesso.
+
+### 5.3 Importazione gruppi Workspace
+
+Il sistema dovrà consentire l’importazione dei gruppi Google Workspace.
+
+Esempi di gruppi:
+
+* segreteria;
+* direttivo;
+* presidenza;
+* amministrazione;
+* responsabili di sezione;
+* volontari;
+* referenti territoriali;
+* referenti progetto;
+* gruppi regionali;
+* gruppi nazionali.
+
+I gruppi importati potranno essere usati per:
+
+* assegnare protocolli;
+* inviare notifiche;
+* dare accesso ai documenti;
+* inserire destinatari per conoscenza;
+* configurare workflow approvativi;
+* definire visibilità e permessi.
+
+### 5.4 Ruoli applicativi
+
+Il sistema dovrà prevedere almeno i seguenti ruoli:
+
+* Amministratore di sistema;
+* Responsabile protocollo;
+* Operatore protocollo;
+* Responsabile documentale;
+* Responsabile fascicolo;
+* Firmatario;
+* Approvatore;
+* Collaboratore;
+* Utente in conoscenza;
+* Utente lettore;
+* Revisore;
+* Auditor;
+* Responsabile sezione;
+* Utente esterno, se abilitato in futuro.
+
+### 5.5 Permessi
+
+I permessi dovranno essere gestiti su più livelli:
+
+* livello sistema;
+* livello modulo;
+* livello fascicolo;
+* livello documento;
+* livello protocollo;
+* livello task;
+* livello allegato.
+
+Le autorizzazioni minime dovranno includere:
+
+* lettura;
+* creazione;
+* modifica metadati;
+* modifica documento;
+* protocollazione;
+* annullamento protocollo;
+* assegnazione;
+* approvazione;
+* firma;
+* invio;
+* archiviazione;
+* eliminazione logica;
+* esportazione;
+* amministrazione.
+
+---
+
+## 6. Repository documentale su Google Drive
+
+### 6.1 Cartella dedicata
+
+Il sistema dovrà archiviare i documenti su Google Drive all’interno di una cartella dedicata esclusivamente al DMS.
+
+La cartella dovrà essere:
+
+* creata durante la configurazione iniziale;
+* accessibile solo all’account tecnico o agli utenti autorizzati;
+* non liberamente navigabile dagli utenti non autorizzati;
+* organizzata automaticamente dal sistema;
+* protetta da modifiche manuali non tracciate, per quanto tecnicamente possibile;
+* sottoposta a logica di permessi coerente con i ruoli del DMS.
+
+Il sistema dovrà poter operare secondo una delle seguenti modalità:
+
+* cartella dedicata nel Drive di un account tecnico;
+* Shared Drive dedicato all’organizzazione;
+* struttura ibrida, con repository centrale e aree separate per uffici/sezioni.
+
+La soluzione preferibile è un repository centrale governato dal sistema, con permessi applicativi gestiti dal DMS.
+
+### 6.2 Struttura cartelle
+
+La struttura delle cartelle dovrà essere configurabile.
+
+Struttura minima consigliata:
+
+```text
+/DMS
+  /2026
+    /Protocollo_Entrata
+    /Protocollo_Uscita
+    /Protocollo_Interno
+    /Circolari
+    /Verbali
+    /Convenzioni
+    /Bandi
+    /Sezioni
+    /Fascicoli
+```
+
+Per ogni protocollo il sistema potrà generare una cartella specifica:
+
+```text
+/DMS/2026/Protocollo_Uscita/AIM-2026-U-000123/
+```
+
+La cartella del singolo protocollo dovrà contenere:
+
+* documento originale;
+* documento convertito in PDF;
+* documento firmato;
+* allegati;
+* ricevute di invio;
+* eventuali ricevute PEC;
+* report di protocollo;
+* file metadati;
+* versioni precedenti, se previsto;
+* log esportabile.
+
+### 6.3 Nomenclatura file
+
+Il sistema dovrà applicare una regola standard per il nome dei file.
+
+Esempio:
+
+```text
+AIM-2026-U-000123_Circolare_consegna_farmaci_v1.pdf
+AIM-2026-U-000123_Circolare_consegna_farmaci_FIRMATO.pdf
+AIM-2026-U-000123_Ricevuta_invio_email.pdf
+```
+
+La nomenclatura dovrà essere configurabile dall’amministratore.
+
+### 6.4 Metadati Drive
+
+Ove possibile, il sistema dovrà associare ai file metadati applicativi, tra cui:
+
+* numero protocollo;
+* anno;
+* tipo protocollo;
+* oggetto;
+* fascicolo;
+* stato;
+* responsabile;
+* livello riservatezza;
+* data creazione;
+* data protocollazione;
+* hash documento;
+* ID interno DMS.
+
+---
+
+## 7. Gestione documentale core
+
+### 7.1 Creazione documento
+
+Il sistema dovrà consentire di creare un nuovo documento a partire da:
+
+* caricamento file locale;
+* documento già presente in Google Drive;
+* email Gmail;
+* allegato email;
+* template;
+* Google Docs;
+* scansione;
+* import massivo;
+* documento generato da workflow.
+
+### 7.2 Archiviazione semplice
+
+Il sistema dovrà consentire l’archiviazione semplice di un documento senza necessariamente avviare un workflow complesso.
+
+Caso d’uso: archiviazione circolare interna.
+
+L’utente dovrà poter:
+
+1. caricare o selezionare il documento;
+2. scegliere tipo documento;
+3. compilare oggetto;
+4. selezionare fascicolo;
+5. indicare area o sezione;
+6. scegliere se protocollare;
+7. salvare il documento nel repository;
+8. generare eventuale PDF;
+9. notificare i destinatari interessati.
+
+### 7.3 Versioning
+
+Il sistema dovrà gestire le versioni del documento.
+
+Ogni versione dovrà riportare:
+
+* numero versione;
+* autore;
+* data;
+* descrizione modifica;
+* stato;
+* file associato;
+* hash file;
+* eventuale protocollo associato.
+
+Il sistema dovrà distinguere almeno:
+
+* bozza;
+* versione in revisione;
+* versione approvata;
+* versione protocollata;
+* versione firmata;
+* versione inviata;
+* versione archiviata.
+
+### 7.4 Stato documento
+
+Ogni documento dovrà avere uno stato.
+
+Stati minimi:
+
+* Bozza;
+* Da classificare;
+* Da protocollare;
+* Protocollato;
+* Assegnato;
+* In lavorazione;
+* In revisione;
+* In approvazione;
+* In firma;
+* Firmato;
+* Da inviare;
+* Inviato;
+* Completato;
+* Archiviato;
+* Annullato;
+* Sospeso;
+* Scaduto.
+
+### 7.5 Collegamento tra documenti
+
+Il sistema dovrà consentire di collegare documenti tra loro.
+
+Esempi:
+
+* richiesta iniziale;
+* risposta;
+* allegato;
+* integrazione;
+* verbale collegato;
+* convenzione collegata;
+* fattura collegata;
+* rendicontazione collegata.
+
+Il collegamento potrà essere:
+
+* manuale;
+* suggerito automaticamente dal sistema;
+* derivato da stesso fascicolo;
+* derivato da stesso mittente;
+* derivato da stesso oggetto;
+* derivato da stesso protocollo padre.
+
+---
+
+## 8. Protocollo informatico
+
+### 8.1 Tipi di protocollo
+
+Il sistema dovrà gestire almeno:
+
+* protocollo in entrata;
+* protocollo in uscita;
+* protocollo interno;
+* protocollo riservato;
+* repertori specifici, se configurati.
+
+### 8.2 Numerazione
+
+Il sistema dovrà generare numerazione univoca e progressiva.
+
+Esempi:
+
+```text
+AIM-2026-E-000001
+AIM-2026-U-000001
+AIM-2026-I-000001
+AIM-2026-RIS-000001
+```
+
+La struttura dovrà essere configurabile.
+
+Campi configurabili:
+
+* prefisso organizzazione;
+* anno;
+* tipo protocollo;
+* progressivo;
+* eventuale codice area;
+* eventuale codice sezione;
+* eventuale codice repertorio.
+
+### 8.3 Registro protocollo
+
+Ogni registrazione dovrà generare una voce nel registro.
+
+Campi minimi:
+
+* numero protocollo;
+* data e ora protocollo;
+* tipo protocollo;
+* oggetto;
+* mittente;
+* destinatario;
+* assegnatario;
+* fascicolo;
+* classificazione;
+* documento principale;
+* allegati;
+* utente protocollatore;
+* stato;
+* livello riservatezza;
+* impronta/hash documento;
+* note;
+* eventuale protocollo collegato;
+* canale di ricezione/invio;
+* identificativo email o PEC, se presente.
+
+### 8.4 Protocollazione in entrata
+
+Il sistema dovrà consentire la protocollazione di documenti ricevuti da:
+
+* caricamento manuale;
+* Gmail;
+* allegati Gmail;
+* Drive;
+* import da scanner;
+* PEC, in fase successiva;
+* API esterna.
+
+Flusso minimo:
+
+1. acquisizione documento;
+2. estrazione metadati;
+3. proposta classificazione;
+4. proposta fascicolo;
+5. compilazione campi obbligatori;
+6. assegnazione numero protocollo;
+7. salvataggio su Drive;
+8. assegnazione a responsabile;
+9. eventuale notifica;
+10. apertura task.
+
+### 8.5 Protocollazione in uscita
+
+Il sistema dovrà consentire la protocollazione di documenti prodotti internamente.
+
+Flusso minimo:
+
+1. creazione bozza;
+2. revisione;
+3. approvazione;
+4. eventuale firma;
+5. generazione PDF;
+6. protocollazione in uscita;
+7. invio email o PEC;
+8. salvataggio ricevute;
+9. chiusura o attesa risposta.
+
+### 8.6 Protocollo interno
+
+Il sistema dovrà gestire documenti interni che non vengono inviati all’esterno.
+
+Esempi:
+
+* circolari;
+* verbali;
+* disposizioni interne;
+* comunicazioni ai volontari;
+* assegnazioni operative;
+* note di servizio.
+
+### 8.7 Annullamento protocollo
+
+Il sistema dovrà consentire l’annullamento logico di una registrazione di protocollo.
+
+L’annullamento dovrà:
+
+* essere consentito solo a utenti autorizzati;
+* richiedere motivazione obbligatoria;
+* non cancellare la registrazione originaria;
+* mantenere traccia di data, ora e utente;
+* rendere evidente lo stato “annullato”;
+* preservare documento e log.
+
+### 8.8 Modifica protocollo
+
+Le modifiche ai dati di protocollo dovranno essere limitate.
+
+Il sistema dovrà distinguere tra:
+
+* dati non modificabili;
+* dati modificabili con log;
+* dati modificabili solo da amministratore;
+* dati modificabili solo tramite rettifica.
+
+---
+
+## 9. Classificazione, titolario, fascicoli e pratiche
+
+### 9.1 Titolario
+
+Il sistema dovrà prevedere un titolario configurabile.
+
+Esempio:
+
+```text
+01 - Governance
+02 - Segreteria
+03 - Volontari
+04 - Progetti sociali
+05 - Sanità e fragilità
+06 - Bandi e contributi
+07 - Convenzioni
+08 - Amministrazione
+09 - Sezioni territoriali
+10 - Comunicazioni esterne
+```
+
+Il titolario dovrà poter essere articolato in:
+
+* titolo;
+* classe;
+* sottoclasse;
+* categoria documentale.
+
+### 9.2 Fascicoli
+
+Il sistema dovrà consentire la creazione e gestione di fascicoli.
+
+Ogni fascicolo dovrà avere:
+
+* codice fascicolo;
+* titolo;
+* descrizione;
+* anno;
+* area;
+* responsabile;
+* utenti autorizzati;
+* stato;
+* data apertura;
+* data chiusura;
+* classificazione;
+* documenti collegati;
+* task collegati;
+* note;
+* livello riservatezza.
+
+### 9.3 Pratiche
+
+Il sistema dovrà consentire una vista “pratica”, più vicina all’operatività quotidiana.
+
+Una pratica potrà contenere:
+
+* più fascicoli;
+* più protocolli;
+* documenti;
+* email;
+* task;
+* firme;
+* scadenze;
+* note;
+* eventi;
+* persone coinvolte.
+
+Esempio:
+
+```text
+Pratica: Convenzione Comune di Roma 2026
+  - richiesta iniziale
+  - documenti istruttori
+  - bozza convenzione
+  - approvazione direttivo
+  - firma Presidente
+  - protocollo uscita
+  - invio
+  - ricevute
+  - rendicontazione
+```
+
+---
+
+## 10. Assegnazioni, collaborazione e presa in carico
+
+### 10.1 Assegnazione singola
+
+Il sistema dovrà consentire di assegnare un protocollo a una persona.
+
+L’assegnatario principale dovrà ricevere una notifica email con:
+
+* numero protocollo;
+* oggetto;
+* descrizione;
+* documento collegato;
+* task richiesto;
+* scadenza;
+* priorità;
+* link alla scheda protocollo.
+
+### 10.2 Assegnazione multipla
+
+Il sistema dovrà consentire di assegnare lo stesso protocollo a più persone.
+
+Per ogni assegnatario dovrà essere possibile indicare il ruolo operativo:
+
+* responsabile principale;
+* collaboratore;
+* revisore;
+* approvatore;
+* firmatario;
+* informato;
+* osservatore.
+
+### 10.3 Gruppi per conoscenza
+
+Il sistema dovrà consentire di mettere in conoscenza uno o più gruppi.
+
+Esempi:
+
+* direttivo;
+* segreteria;
+* responsabili territoriali;
+* sezione Roma;
+* referenti farmaci;
+* volontari abilitati.
+
+Gli utenti in conoscenza potranno:
+
+* ricevere notifica;
+* visualizzare il documento, se autorizzati;
+* non modificare il documento;
+* non modificare il workflow, salvo permessi specifici.
+
+### 10.4 Lavoro contemporaneo
+
+Il sistema dovrà consentire il lavoro contemporaneo sui documenti modificabili in Google Docs.
+
+Il DMS dovrà:
+
+* mantenere il controllo dello stato;
+* registrare chi è assegnato;
+* gestire permessi Drive coerenti;
+* distinguere documento di lavoro da documento ufficiale;
+* impedire invio/firma di documenti non approvati;
+* salvare la versione finale prima della firma.
+
+### 10.5 Presa in carico
+
+L’assegnatario dovrà poter indicare:
+
+* preso in carico;
+* non di competenza;
+* richiede chiarimenti;
+* in lavorazione;
+* completato;
+* trasferito ad altro utente.
+
+Ogni cambio stato dovrà essere registrato.
+
+---
+
+## 11. Workflow approvativi
+
+### 11.1 Workflow configurabili
+
+Il sistema dovrà consentire la definizione di workflow configurabili.
+
+Esempi:
+
+Workflow circolare interna:
+
+```text
+Bozza → Revisione → Approvazione → Protocollo interno → Pubblicazione → Archiviazione
+```
+
+Workflow lettera esterna:
+
+```text
+Bozza → Revisione → Approvazione → Firma → Protocollo uscita → Invio → Archiviazione
+```
+
+Workflow documento ricevuto:
+
+```text
+Acquisizione → Protocollo entrata → Assegnazione → Lavorazione → Risposta → Chiusura
+```
+
+Workflow convenzione:
+
+```text
+Bozza → Revisione legale → Approvazione direttivo → Firma Presidente → Invio → Archiviazione
+```
+
+### 11.2 Step workflow
+
+Ogni step dovrà prevedere:
+
+* nome step;
+* descrizione;
+* responsabile;
+* utenti abilitati;
+* azioni consentite;
+* scadenza;
+* notifica;
+* esito;
+* passaggio successivo;
+* eventuale ritorno allo step precedente.
+
+### 11.3 Tipi di approvazione
+
+Il sistema dovrà supportare:
+
+* approvazione singola;
+* approvazione multipla;
+* approvazione sequenziale;
+* approvazione parallela;
+* approvazione a maggioranza;
+* approvazione da almeno uno dei membri del gruppo;
+* approvazione obbligatoria di tutti i firmatari.
+
+### 11.4 Esiti approvativi
+
+Gli esiti minimi dovranno essere:
+
+* approvato;
+* respinto;
+* approvato con note;
+* richiesta modifica;
+* sospeso;
+* delegato;
+* non di competenza.
+
+---
+
+## 12. Gestione task
+
+### 12.1 Creazione task
+
+Ogni protocollo o documento dovrà poter generare uno o più task.
+
+Campi task:
+
+* titolo;
+* descrizione;
+* protocollo collegato;
+* documento collegato;
+* fascicolo;
+* assegnatario;
+* gruppo assegnatario;
+* priorità;
+* data creazione;
+* data scadenza;
+* stato;
+* allegati;
+* note;
+* checklist;
+* esito;
+* percentuale avanzamento.
+
+### 12.2 Stati task
+
+Stati minimi:
+
+* nuovo;
+* assegnato;
+* in lavorazione;
+* in attesa;
+* completato;
+* annullato;
+* scaduto;
+* riassegnato.
+
+### 12.3 Riepilogo task via email
+
+Il sistema dovrà inviare email automatiche di riepilogo.
+
+Contenuto minimo:
+
+* oggetto task;
+* protocollo collegato;
+* documento collegato;
+* cosa deve fare l’utente;
+* data scadenza;
+* priorità;
+* link diretto al task;
+* link al documento;
+* contatti del responsabile;
+* sintesi del contenuto del protocollo.
+
+---
+
+## 13. Firma dei documenti
+
+### 13.1 Tipologie di firma
+
+Il sistema dovrà prevedere tre livelli funzionali:
+
+1. Approvazione interna semplice.
+2. Firma elettronica semplice o approvativa.
+3. Firma digitale/firma elettronica qualificata tramite provider esterno.
+
+### 13.2 Firma interna
+
+La firma interna dovrà rappresentare un’approvazione applicativa.
+
+Il sistema dovrà registrare:
+
+* firmatario;
+* data e ora;
+* documento firmato;
+* versione documento;
+* esito;
+* eventuali note;
+* indirizzo email utente;
+* audit dell’operazione.
+
+### 13.3 Firma digitale integrata
+
+Il sistema dovrà essere predisposto per integrazione con provider esterni.
+
+Provider possibili:
+
+* Aruba;
+* InfoCert;
+* Namirial;
+* DocuSign;
+* altri prestatori qualificati.
+
+L’integrazione dovrà supportare:
+
+* invio documento al provider;
+* selezione firmatari;
+* firma sequenziale;
+* firma parallela;
+* firma remota;
+* OTP;
+* ricezione documento firmato;
+* salvataggio su Drive;
+* aggiornamento stato;
+* log dell’operazione;
+* eventuale verifica firma;
+* eventuale marca temporale;
+* eventuale firma PAdES per PDF;
+* eventuale firma CAdES per file generici.
+
+### 13.4 Workflow firma
+
+Stati firma:
+
+* non richiesta;
+* richiesta;
+* in attesa di firma;
+* firmato parzialmente;
+* firmato;
+* respinto;
+* scaduto;
+* annullato.
+
+### 13.5 Firma multipla
+
+Il sistema dovrà consentire:
+
+Firma sequenziale:
+
+```text
+Responsabile → Presidente → Tesoriere
+```
+
+Firma parallela:
+
+```text
+Presidente + Vice Presidente + Tesoriere
+```
+
+Firma condizionata:
+
+```text
+Se importo > 5.000 €, richiedi anche firma Tesoriere
+```
+
+### 13.6 Blocco documento dopo firma
+
+Dopo la firma il documento dovrà essere bloccato.
+
+Il sistema dovrà impedire:
+
+* modifica del file firmato;
+* sostituzione non autorizzata;
+* invio di versione diversa;
+* cancellazione senza autorizzazione.
+
+Eventuali modifiche successive dovranno generare una nuova versione e, se necessario, un nuovo processo di firma.
+
+---
+
+## 14. Invio documenti verso l’esterno
+
+### 14.1 Invio email
+
+Il sistema dovrà consentire l’invio di documenti protocollati tramite email.
+
+L’utente autorizzato dovrà poter:
+
+* selezionare destinatari;
+* inserire CC;
+* inserire BCC;
+* scegliere mittente autorizzato;
+* scegliere template email;
+* allegare documento protocollato;
+* allegare documento firmato;
+* allegare ulteriori file;
+* generare oggetto standard;
+* inviare;
+* salvare ricevuta/log invio;
+* collegare eventuale risposta.
+
+Oggetto email consigliato:
+
+```text
+Prot. AIM-2026-U-000123 - Oggetto del documento
+```
+
+### 14.2 Invio a soggetti interni
+
+Per utenti interni il sistema potrà:
+
+* inviare email;
+* condividere link Drive;
+* assegnare task;
+* notificare in dashboard;
+* notificare via Google Chat, in una fase successiva.
+
+### 14.3 Invio a soggetti esterni
+
+Per soggetti esterni il sistema dovrà poter inviare:
+
+* allegato PDF;
+* allegato PDF firmato;
+* link sicuro con scadenza, se previsto;
+* email con testo standard;
+* riepilogo protocollo;
+* riferimenti per risposta.
+
+### 14.4 Invio PEC
+
+Il sistema dovrà essere predisposto per futura integrazione PEC.
+
+Funzioni previste:
+
+* invio PEC;
+* ricezione PEC;
+* salvataggio ricevuta accettazione;
+* salvataggio ricevuta consegna;
+* protocollazione automatica PEC;
+* collegamento delle ricevute al protocollo.
+
+---
+
+## 15. Notifiche email e riepiloghi
+
+### 15.1 Eventi notificabili
+
+Il sistema dovrà inviare notifiche per:
+
+* nuovo protocollo assegnato;
+* protocollo in conoscenza;
+* nuovo task;
+* task in scadenza;
+* task scaduto;
+* richiesta approvazione;
+* richiesta firma;
+* documento firmato;
+* documento respinto;
+* documento inviato;
+* pratica chiusa;
+* modifica stato;
+* commento aggiunto;
+* documento collegato;
+* nuova versione caricata.
+
+### 15.2 Contenuto notifica protocollo
+
+Ogni notifica relativa a un protocollo dovrà contenere:
+
+* numero protocollo;
+* tipo protocollo;
+* oggetto;
+* mittente;
+* destinatario;
+* data protocollo;
+* responsabile;
+* stato;
+* priorità;
+* scadenza;
+* fascicolo;
+* breve riassunto del documento;
+* task collegati;
+* azione richiesta;
+* link al protocollo;
+* link al documento, se autorizzato.
+
+### 15.3 Riassunto automatico
+
+Il sistema dovrà generare un riassunto del protocollo e del task.
+
+Il riassunto dovrà evidenziare:
+
+* cosa contiene il documento;
+* perché è stato assegnato;
+* cosa deve fare il destinatario;
+* entro quando;
+* eventuali rischi o urgenze;
+* eventuali documenti collegati.
+
+### 15.4 Digest periodico
+
+Il sistema dovrà inviare un riepilogo periodico agli utenti.
+
+Frequenze configurabili:
+
+* giornaliero;
+* settimanale;
+* solo su eventi;
+* solo task in scadenza;
+* disattivato.
+
+Il digest dovrà contenere:
+
+* protocolli assegnati;
+* task aperti;
+* documenti da approvare;
+* documenti da firmare;
+* scadenze imminenti;
+* protocolli in conoscenza.
+
+---
+
+## 16. Motore di ricerca documentale
+
+### 16.1 Ricerca globale
+
+Il sistema dovrà prevedere una barra di ricerca unica.
+
+L’utente dovrà poter cercare per:
+
+* numero protocollo;
+* oggetto;
+* mittente;
+* destinatario;
+* assegnatario;
+* gruppo;
+* fascicolo;
+* pratica;
+* tag;
+* stato;
+* data;
+* contenuto del documento;
+* testo OCR;
+* note;
+* commenti;
+* allegati;
+* task;
+* email collegate.
+
+### 16.2 Ricerca avanzata
+
+Il sistema dovrà prevedere filtri avanzati:
+
+* intervallo date;
+* anno protocollo;
+* tipo protocollo;
+* stato;
+* classificazione;
+* fascicolo;
+* responsabile;
+* priorità;
+* scadenza;
+* documento firmato/non firmato;
+* documento inviato/non inviato;
+* presenza allegati;
+* livello riservatezza;
+* sezione territoriale;
+* area organizzativa;
+* protocollo annullato;
+* workflow attivo;
+* task aperti;
+* task scaduti.
+
+### 16.3 Ricerca full-text
+
+Il sistema dovrà indicizzare il testo dei documenti.
+
+Dovranno essere indicizzati:
+
+* PDF testuali;
+* Google Docs;
+* Word;
+* Excel;
+* email;
+* allegati;
+* testi estratti da OCR;
+* metadati;
+* note;
+* commenti operativi.
+
+### 16.4 OCR
+
+Il sistema dovrà applicare OCR ai documenti scansionati e alle immagini.
+
+Il motore OCR dovrà:
+
+* riconoscere testo in PDF scansionati;
+* riconoscere testo in immagini;
+* salvare il testo estratto;
+* associare il testo al documento;
+* rendere il testo ricercabile;
+* gestire errori OCR;
+* consentire rielaborazione OCR;
+* indicare data e motore OCR usato;
+* mantenere il documento originale.
+
+### 16.5 Ranking risultati
+
+I risultati della ricerca dovranno essere ordinabili per:
+
+* rilevanza;
+* data più recente;
+* numero protocollo;
+* stato;
+* scadenza;
+* fascicolo;
+* assegnatario;
+* priorità.
+
+### 16.6 Anteprima risultati
+
+Ogni risultato dovrà mostrare:
+
+* numero protocollo;
+* titolo;
+* oggetto;
+* estratto del testo trovato;
+* fascicolo;
+* stato;
+* data;
+* assegnatario;
+* tipo documento;
+* icona file;
+* link apertura scheda.
+
+---
+
+## 17. Dashboard
+
+### 17.1 Dashboard generale
+
+Il sistema dovrà prevedere una dashboard generale con:
+
+* protocolli creati oggi;
+* protocolli del mese;
+* protocolli in ingresso;
+* protocolli in uscita;
+* protocolli interni;
+* documenti in lavorazione;
+* documenti in approvazione;
+* documenti in firma;
+* task aperti;
+* task scaduti;
+* documenti da inviare;
+* documenti archiviati;
+* workflow bloccati;
+* protocolli annullati.
+
+### 17.2 Dashboard personale
+
+Ogni utente dovrà vedere:
+
+* documenti assegnati a me;
+* task assegnati a me;
+* documenti da approvare;
+* documenti da firmare;
+* protocolli in conoscenza;
+* scadenze imminenti;
+* notifiche non lette;
+* pratiche seguite.
+
+### 17.3 Dashboard responsabile
+
+Il responsabile dovrà vedere:
+
+* attività del proprio gruppo;
+* documenti assegnati ai collaboratori;
+* scadenze del team;
+* pratiche aperte;
+* colli di bottiglia;
+* documenti fermi da troppi giorni;
+* task non presi in carico.
+
+### 17.4 Dashboard amministrativa
+
+L’amministratore dovrà vedere:
+
+* utenti attivi;
+* utenti non sincronizzati;
+* errori integrazione Google;
+* errori OCR;
+* errori invio email;
+* protocolli senza fascicolo;
+* documenti senza classificazione;
+* workflow falliti;
+* storage utilizzato;
+* importazioni eseguite.
+
+---
+
+## 18. Scheda protocollo
+
+Ogni protocollo dovrà avere una scheda dettagliata.
+
+La scheda dovrà includere:
+
+* numero protocollo;
+* tipo protocollo;
+* data e ora;
+* oggetto;
+* descrizione;
+* mittente;
+* destinatari;
+* destinatari per conoscenza;
+* fascicolo;
+* classificazione;
+* stato;
+* priorità;
+* livello riservatezza;
+* documento principale;
+* allegati;
+* versioni;
+* assegnatari;
+* task;
+* workflow;
+* firme;
+* invii;
+* ricevute;
+* note;
+* commenti;
+* collegamenti;
+* audit log;
+* storico stati;
+* permessi.
+
+Azioni disponibili:
+
+* apri documento;
+* scarica documento;
+* assegna;
+* cambia stato;
+* crea task;
+* avvia approvazione;
+* avvia firma;
+* protocolla;
+* invia;
+* archivia;
+* collega documento;
+* annulla protocollo;
+* esporta scheda;
+* stampa scheda.
+
+---
+
+## 19. Integrazione Gmail
+
+### 19.1 Protocollazione da Gmail
+
+Il sistema dovrà consentire la protocollazione di email e allegati provenienti da Gmail.
+
+Funzioni previste:
+
+* selezione email;
+* acquisizione mittente;
+* acquisizione destinatari;
+* acquisizione oggetto;
+* acquisizione corpo email;
+* acquisizione allegati;
+* generazione PDF della email;
+* salvataggio email e allegati su Drive;
+* protocollazione in entrata;
+* fascicolazione;
+* assegnazione;
+* notifica.
+
+### 19.2 Invio da Gmail
+
+Il sistema dovrà poter inviare email tramite account autorizzati.
+
+L’invio dovrà essere tracciato.
+
+Il sistema dovrà salvare:
+
+* data invio;
+* mittente;
+* destinatari;
+* oggetto;
+* corpo;
+* allegati;
+* protocollo collegato;
+* eventuale ID messaggio;
+* esito invio.
+
+---
+
+## 20. Intelligenza artificiale a supporto
+
+### 20.1 Classificazione automatica
+
+Il sistema potrà suggerire:
+
+* tipo documento;
+* fascicolo;
+* titolario;
+* tag;
+* responsabile;
+* priorità;
+* livello riservatezza;
+* eventuale scadenza.
+
+### 20.2 Riassunto documento
+
+Il sistema dovrà poter generare un riassunto del documento.
+
+Il riassunto dovrà essere:
+
+* breve;
+* leggibile;
+* orientato all’azione;
+* associato al protocollo;
+* modificabile dall’utente autorizzato.
+
+### 20.3 Estrazione dati
+
+Il sistema potrà estrarre:
+
+* date;
+* importi;
+* nomi;
+* enti;
+* riferimenti normativi;
+* scadenze;
+* indirizzi email;
+* numeri di telefono;
+* codici fiscali o partite IVA, se presenti;
+* riferimenti a protocolli precedenti.
+
+### 20.4 Suggerimento task
+
+Il sistema potrà proporre task automatici.
+
+Esempio:
+
+```text
+Documento: Richiesta patrocinio
+Task suggerito: Preparare risposta entro 10 giorni
+Assegnatario suggerito: Segreteria
+```
+
+### 20.5 Controlli AI
+
+Le funzioni AI dovranno essere sempre assistive.
+
+Il sistema non dovrà prendere decisioni definitive senza conferma dell’utente, salvo regole automatiche esplicitamente configurate.
+
+---
+
+## 21. Importazione da Regystrum e sistemi precedenti
+
+### 21.1 Obiettivo migrazione
+
+Il sistema dovrà prevedere un modulo per importare documenti, protocolli e metadati da sistemi preesistenti, con particolare attenzione a Regystrum.
+
+### 21.2 Modalità di importazione
+
+Dovranno essere supportate più modalità:
+
+1. Import da CSV/Excel.
+2. Import da cartelle Google Drive esistenti.
+3. Import da archivio ZIP.
+4. Import da export applicativo.
+5. Import tramite API, se disponibili.
+6. Import manuale assistito.
+
+### 21.3 Import da CSV/Excel
+
+Il file di import dovrà contenere almeno:
+
+* numero protocollo originario;
+* anno;
+* tipo protocollo;
+* data protocollo;
+* oggetto;
+* mittente;
+* destinatario;
+* fascicolo;
+* classificazione;
+* assegnatario;
+* stato;
+* percorso file;
+* link Drive;
+* note;
+* allegati;
+* eventuale codice Regystrum.
+
+### 21.4 Import da Drive
+
+Il sistema dovrà poter scansionare una cartella Drive esistente.
+
+Funzioni:
+
+* lettura struttura cartelle;
+* riconoscimento anno/mese/protocollo;
+* associazione file a protocollo;
+* estrazione metadati dal nome file;
+* OCR dei documenti non testuali;
+* generazione record DMS;
+* controllo duplicati;
+* report anomalie.
+
+### 21.5 Mappatura campi
+
+Il sistema dovrà fornire una schermata di mapping.
+
+L’amministratore dovrà poter associare:
+
+```text
+Campo Regystrum → Campo nuovo DMS
+```
+
+Esempi:
+
+```text
+Protocol Number → Numero protocollo
+Subject → Oggetto
+Assigned To → Assegnatario
+Folder → Fascicolo
+Created Date → Data protocollo
+```
+
+### 21.6 Gestione duplicati
+
+Il sistema dovrà rilevare duplicati tramite:
+
+* numero protocollo;
+* nome file;
+* hash file;
+* data e oggetto;
+* link Drive;
+* mittente/destinatario.
+
+Per ogni duplicato dovrà proporre:
+
+* ignora;
+* aggiorna metadati;
+* importa come nuova versione;
+* importa come allegato;
+* segnala errore.
+
+### 21.7 Report migrazione
+
+Ogni import dovrà produrre un report con:
+
+* documenti analizzati;
+* protocolli importati;
+* file importati;
+* file non trovati;
+* errori;
+* duplicati;
+* documenti senza metadati;
+* documenti senza fascicolo;
+* documenti senza file;
+* tempo elaborazione;
+* utente che ha eseguito l’import.
+
+---
+
+## 22. Sicurezza, riservatezza e audit
+
+### 22.1 Audit log
+
+Il sistema dovrà registrare tutte le operazioni rilevanti.
+
+Eventi da loggare:
+
+* login;
+* logout;
+* accesso a documento;
+* download;
+* creazione documento;
+* modifica metadati;
+* protocollazione;
+* annullamento protocollo;
+* assegnazione;
+* cambio stato;
+* approvazione;
+* firma;
+* invio email;
+* condivisione;
+* modifica permessi;
+* cancellazione logica;
+* importazione;
+* esportazione;
+* errore applicativo.
+
+Ogni log dovrà contenere:
+
+* utente;
+* data e ora;
+* azione;
+* oggetto interessato;
+* valore precedente;
+* valore successivo;
+* indirizzo IP, se disponibile;
+* esito;
+* eventuale motivazione.
+
+### 22.2 Livelli di riservatezza
+
+Il sistema dovrà prevedere livelli di riservatezza.
+
+Esempio:
+
+* pubblico interno;
+* interno;
+* riservato;
+* strettamente riservato;
+* dati personali;
+* dati sensibili;
+* documentazione sanitaria;
+* documentazione amministrativa critica.
+
+### 22.3 Permessi Drive e permessi applicativi
+
+Il sistema dovrà mantenere coerenza tra:
+
+* permessi applicativi;
+* permessi Google Drive;
+* gruppi Workspace;
+* stato del documento.
+
+Il sistema dovrà impedire che un documento riservato sia condiviso impropriamente.
+
+### 22.4 Blocco cancellazione
+
+I documenti protocollati non dovranno essere cancellabili fisicamente dagli utenti ordinari.
+
+Dovrà essere prevista solo cancellazione logica, con mantenimento dello storico.
+
+---
+
+## 23. Conservazione, export e backup
+
+### 23.1 Archiviazione ordinaria
+
+Il sistema archivierà i documenti su Google Drive nel repository dedicato.
+
+### 23.2 Conservazione digitale a norma
+
+Il sistema dovrà essere predisposto per futura integrazione con un sistema di conservazione digitale a norma, qualora richiesto.
+
+Funzioni previste:
+
+* creazione pacchetto di versamento;
+* esportazione metadati;
+* esportazione documenti;
+* esportazione impronte;
+* invio a conservatore;
+* ricezione esito;
+* marcatura stato “in conservazione”.
+
+### 23.3 Export completo
+
+Il sistema dovrà consentire export completo dei dati.
+
+Formati:
+
+* CSV;
+* Excel;
+* JSON;
+* ZIP documenti;
+* PDF scheda protocollo;
+* report fascicolo;
+* report pratica.
+
+### 23.4 Backup
+
+Il sistema dovrà prevedere:
+
+* backup database;
+* backup configurazioni;
+* backup metadati;
+* possibilità di ricostruire l’archivio a partire da Drive e database;
+* log delle procedure di backup.
+
+---
+
+## 24. Reportistica
+
+Il sistema dovrà produrre report su:
+
+* protocolli per periodo;
+* protocolli per tipo;
+* protocolli per assegnatario;
+* protocolli per stato;
+* documenti in lavorazione;
+* documenti in firma;
+* task aperti;
+* task scaduti;
+* tempi medi di approvazione;
+* tempi medi di firma;
+* tempi medi di chiusura pratica;
+* documenti per fascicolo;
+* documenti per sezione;
+* documenti annullati;
+* documenti importati;
+* anomalie documentali.
+
+I report dovranno essere esportabili in Excel e PDF.
+
+---
+
+## 25. Amministrazione sistema
+
+### 25.1 Parametri configurabili
+
+L’amministratore dovrà poter configurare:
+
+* prefisso protocollo;
+* formato numerazione;
+* tipi documento;
+* stati documento;
+* stati task;
+* livelli riservatezza;
+* titolario;
+* fascicoli;
+* workflow;
+* template email;
+* template documenti;
+* ruoli;
+* permessi;
+* gruppi abilitati;
+* cartella Drive repository;
+* regole OCR;
+* regole notifiche;
+* regole import;
+* provider firma;
+* canali invio.
+
+### 25.2 Template
+
+Il sistema dovrà gestire template per:
+
+* email di notifica;
+* email di invio documento;
+* riepilogo task;
+* scheda protocollo;
+* documento interno;
+* circolare;
+* lettera;
+* verbale;
+* convenzione;
+* report fascicolo.
+
+### 25.3 Configurazione workflow
+
+L’amministratore dovrà poter creare workflow tramite interfaccia.
+
+Per ogni workflow dovrà definire:
+
+* nome;
+* descrizione;
+* tipo documento;
+* step;
+* responsabili;
+* approvatori;
+* firmatari;
+* condizioni;
+* notifiche;
+* scadenze;
+* esiti;
+* azioni automatiche.
+
+---
+
+## 26. API e integrazioni
+
+Il sistema dovrà essere predisposto per API REST.
+
+Le API dovranno consentire:
+
+* creazione documento;
+* ricerca documento;
+* lettura metadati;
+* creazione protocollo;
+* aggiornamento stato;
+* creazione task;
+* invio notifica;
+* caricamento allegati;
+* estrazione report;
+* importazione dati.
+
+Le API dovranno essere protette da autenticazione e autorizzazione.
+
+---
+
+## 27. Interfacce utente principali
+
+Il sistema dovrà prevedere almeno le seguenti schermate:
+
+1. Login.
+2. Dashboard generale.
+3. Dashboard personale.
+4. Elenco protocolli.
+5. Nuovo protocollo.
+6. Scheda protocollo.
+7. Elenco documenti.
+8. Scheda documento.
+9. Elenco fascicoli.
+10. Scheda fascicolo.
+11. Elenco pratiche.
+12. Scheda pratica.
+13. Task personali.
+14. Workflow in corso.
+15. Documenti da approvare.
+16. Documenti da firmare.
+17. Ricerca globale.
+18. Ricerca avanzata.
+19. Importazione documenti.
+20. Report importazione.
+21. Amministrazione utenti.
+22. Amministrazione gruppi.
+23. Configurazione workflow.
+24. Configurazione protocollo.
+25. Configurazione Drive.
+26. Audit log.
+27. Reportistica.
+
+---
+
+## 28. Requisiti minimi MVP
+
+Per una prima versione funzionante, il sistema dovrà includere almeno:
+
+1. Login Google Workspace.
+2. Import utenti e gruppi Workspace.
+3. Repository Drive dedicato.
+4. Caricamento documento.
+5. Archiviazione documento.
+6. Protocollo entrata/uscita/interno.
+7. Numerazione automatica.
+8. Fascicoli.
+9. Assegnazione a uno o più utenti.
+10. Gruppi in conoscenza.
+11. Notifiche email.
+12. Riepilogo protocollo e task via email.
+13. Dashboard personale.
+14. Elenco protocolli filtrabile.
+15. Scheda protocollo.
+16. Workflow semplice approvazione.
+17. Firma interna approvativa.
+18. Invio documento via Gmail.
+19. Ricerca per metadati.
+20. OCR base.
+21. Ricerca full-text.
+22. Audit log.
+23. Import da CSV/Excel.
+24. Import da cartella Drive.
+
+---
+
+## 29. Funzionalità da prevedere in seconda fase
+
+In una seconda fase potranno essere aggiunte:
+
+* firma digitale qualificata tramite provider;
+* PEC;
+* conservazione digitale a norma;
+* Google Chat;
+* AI avanzata per classificazione e riassunto;
+* app mobile;
+* dashboard avanzate;
+* API pubbliche;
+* connettore diretto Regystrum;
+* gestione scadenze su Google Calendar;
+* firma multipla avanzata;
+* validazione automatica firme;
+* marca temporale;
+* export per conservatore.
+
+---
+
+## 30. Criteri di accettazione
+
+Il sistema sarà considerato conforme alla specifica se:
+
+* un utente Workspace può accedere con il proprio account;
+* un amministratore può importare utenti e gruppi;
+* un documento può essere caricato e salvato nella cartella Drive dedicata;
+* un documento può essere protocollato con numero progressivo;
+* un protocollo può essere assegnato a una persona;
+* un protocollo può essere assegnato a più persone;
+* un gruppo può essere inserito per conoscenza;
+* gli assegnatari ricevono email di notifica;
+* l’email contiene riepilogo protocollo e task;
+* il documento è ricercabile per metadati;
+* il documento è ricercabile per contenuto;
+* un PDF scansionato può essere indicizzato tramite OCR;
+* un workflow approvativo può essere eseguito;
+* un documento può essere approvato;
+* un documento può essere firmato internamente;
+* un documento protocollato può essere inviato via email;
+* l’invio viene registrato nello storico;
+* tutti gli eventi rilevanti sono presenti in audit log;
+* i documenti importati da CSV/Drive vengono associati ai relativi protocolli;
+* i permessi applicativi impediscono accessi non autorizzati;
+* un amministratore può esportare report e dati principali.
+
+---
+
+## 31. Considerazione finale
+
+Il sistema dovrà nascere come DMS completo e non come semplice registro di protocollo.
+
+Il protocollo dovrà essere una funzione integrata nel ciclo di vita del documento, insieme a fascicolazione, assegnazione, collaborazione, approvazione, firma, invio, ricerca e conservazione.
+
+La progettazione dovrà privilegiare semplicità operativa e tracciabilità: l’utente dovrà poter archiviare una circolare in pochi click, ma il sistema dovrà essere abbastanza robusto da gestire anche documenti formali, approvazioni multiple, firme, invii esterni e pratiche complesse.

@@ -1,0 +1,275 @@
+import { useState } from "react";
+import { Link } from "wouter";
+import {
+  useListProtocols,
+  useGetProtocolSummary,
+  useCreateProtocol,
+  useListDossiers,
+  getListProtocolsQueryKey,
+  getListDossiersQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ProtocolTypeBadge, StatusBadge, PriorityBadge } from "@/components/shared/status-badges";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { ChevronLeft, ChevronRight, Plus, Filter, Mail, Send, Building2, Lock } from "lucide-react";
+
+const TYPES = [
+  { value: "incoming", label: "Entrata" },
+  { value: "outgoing", label: "Uscita" },
+  { value: "internal", label: "Interno" },
+  { value: "reserved", label: "Riservato" },
+];
+
+const STATUSES = [
+  { value: "registered", label: "Protocollato" },
+  { value: "assigned", label: "Assegnato" },
+  { value: "in_progress", label: "In lavorazione" },
+  { value: "completed", label: "Completato" },
+  { value: "cancelled", label: "Annullato" },
+];
+
+export default function ProtocolsPage() {
+  const qc = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterYear, setFilterYear] = useState<string>("all");
+  const [showNew, setShowNew] = useState(false);
+  const [form, setForm] = useState({
+    type: "incoming", subject: "", description: "", sender: "",
+    recipients: "", priority: "normal", confidentiality: "normal",
+    dossierId: "", notes: "",
+  });
+
+  const params = {
+    page, limit: 20,
+    ...(filterType !== "all" && { type: filterType }),
+    ...(filterStatus !== "all" && { status: filterStatus }),
+    ...(filterYear !== "all" && { year: Number(filterYear) }),
+  };
+
+  const { data, isLoading } = useListProtocols(params, { query: { queryKey: getListProtocolsQueryKey(params) } });
+  const { data: summary } = useGetProtocolSummary();
+  const { data: dossiers } = useListDossiers({}, { query: { queryKey: getListDossiersQueryKey() } });
+  const createProtocol = useCreateProtocol();
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / 20);
+
+  function handleCreate() {
+    createProtocol.mutate(
+      {
+        data: {
+          ...form,
+          recipients: form.recipients ? form.recipients.split(",").map((r) => r.trim()) : [],
+          ccRecipients: [],
+          dossierId: form.dossierId ? Number(form.dossierId) : undefined,
+        } as Parameters<typeof createProtocol.mutate>[0]["data"],
+      },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: ["listProtocols"] });
+          setShowNew(false);
+          setForm({ type: "incoming", subject: "", description: "", sender: "", recipients: "", priority: "normal", confidentiality: "normal", dossierId: "", notes: "" });
+        },
+      }
+    );
+  }
+
+  const TypeIcon = ({ type }: { type: string }) => {
+    if (type === "incoming") return <Mail className="h-4 w-4 text-blue-600" />;
+    if (type === "outgoing") return <Send className="h-4 w-4 text-emerald-600" />;
+    if (type === "reserved") return <Lock className="h-4 w-4 text-red-600" />;
+    return <Building2 className="h-4 w-4 text-slate-500" />;
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Registro Protocolli</h1>
+          {summary && (
+            <p className="text-sm text-slate-500 mt-0.5">
+              {summary.thisYear} quest'anno · {summary.thisMonth} questo mese
+            </p>
+          )}
+        </div>
+        <Button onClick={() => setShowNew(true)} size="sm" className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          Nuovo Protocollo
+        </Button>
+      </div>
+
+      {summary && (
+        <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 flex gap-4 flex-wrap">
+          {TYPES.map((t) => {
+            const cnt = summary.byType.find((b: { type: string; count: number }) => b.type === t.value)?.count ?? 0;
+            return (
+              <button
+                key={t.value}
+                onClick={() => setFilterType(filterType === t.value ? "all" : t.value)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterType === t.value ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"}`}
+              >
+                <TypeIcon type={t.value} />
+                {t.label} <span className="font-bold">{cnt}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="px-6 py-3 flex gap-3 items-center border-b border-slate-100">
+        <Filter className="h-4 w-4 text-slate-400" />
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-44 h-8 text-xs">
+            <SelectValue placeholder="Stato" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti gli stati</SelectItem>
+            {STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterYear} onValueChange={setFilterYear}>
+          <SelectTrigger className="w-28 h-8 text-xs">
+            <SelectValue placeholder="Anno" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutti</SelectItem>
+            {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <span className="ml-auto text-xs text-slate-500">{total} protocolli</span>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="p-6 text-center text-slate-400 text-sm">Caricamento...</div>
+        ) : items.length === 0 ? (
+          <div className="p-12 text-center text-slate-400">
+            <Building2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Nessun protocollo trovato</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Numero</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Oggetto</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Mitt./Dest.</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Stato</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Data</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Assegnato</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(items as Array<{
+                id: number; number: string; type: string; subject: string;
+                sender?: string | null; recipients?: string[] | null; status: string; priority?: string;
+                registeredAt: string; assignedToName?: string | null;
+              }>).map((p) => (
+                <tr key={p.id} className="hover:bg-slate-50 group cursor-pointer" onClick={() => window.location.href = `/protocols/${p.id}`}>
+                  <td className="px-6 py-3">
+                    <Link href={`/protocols/${p.id}`} className="font-mono text-xs font-medium text-slate-900 hover:text-blue-700">{p.number}</Link>
+                  </td>
+                  <td className="px-4 py-3"><ProtocolTypeBadge type={p.type} /></td>
+                  <td className="px-4 py-3 max-w-xs">
+                    <span className="text-slate-800 line-clamp-1">{p.subject}</span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">
+                    {p.sender || (p.recipients?.[0]) || "—"}
+                  </td>
+                  <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                  <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                    {new Date(p.registeredAt).toLocaleDateString("it-IT")}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 text-xs">{p.assignedToName ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="px-6 py-3 border-t border-slate-200 flex items-center gap-3">
+          <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+          <span className="text-xs text-slate-600">Pagina {page} di {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(page + 1)}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      )}
+
+      <Dialog open={showNew} onOpenChange={setShowNew}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Nuovo Protocollo</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Tipo *</Label>
+              <div className="flex gap-2">
+                {TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    onClick={() => setForm((f) => ({ ...f, type: t.value }))}
+                    className={`flex-1 py-2 rounded-md text-xs font-medium border transition-colors ${form.type === t.value ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}
+                  >{t.label}</button>
+                ))}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Oggetto *</Label>
+              <Input value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} placeholder="Oggetto del protocollo" />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600 mb-1 block">{form.type === "incoming" ? "Mittente" : "Destinatari"}</Label>
+              <Input value={form.type === "incoming" ? form.sender : form.recipients} onChange={(e) => setForm((f) => form.type === "incoming" ? { ...f, sender: e.target.value } : { ...f, recipients: e.target.value })} placeholder={form.type === "incoming" ? "Nome mittente" : "Separati da virgola"} />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600 mb-1 block">Priorità</Label>
+              <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="urgent">Urgente</SelectItem>
+                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="normal">Normale</SelectItem>
+                  <SelectItem value="low">Bassa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Fascicolo</Label>
+              <Select value={form.dossierId} onValueChange={(v) => setForm((f) => ({ ...f, dossierId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Nessun fascicolo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nessuno</SelectItem>
+                  {(dossiers?.items ?? []).map((d: { id: number; code: string; title: string }) => (
+                    <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Note</Label>
+              <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={3} placeholder="Note aggiuntive" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNew(false)}>Annulla</Button>
+            <Button onClick={handleCreate} disabled={!form.subject || createProtocol.isPending}>
+              {createProtocol.isPending ? "Salvataggio..." : "Registra Protocollo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
