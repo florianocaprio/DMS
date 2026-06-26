@@ -17,6 +17,107 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Request a presigned URL for file upload
+ */
+
+
+
+
+
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+})
+
+
+
+
+
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string().url(),
+  "objectPath": zod.string(),
+  "metadata": zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+}).optional()
+})
+
+
+/**
+ * @summary Serve an uploaded object
+ */
+export const GetStorageObjectParams = zod.object({
+  "objectPath": zod.coerce.string()
+})
+
+export const GetStorageObjectResponse = zod.unknown()
+
+
+/**
+ * @summary List file attachments
+ */
+export const ListAttachmentsQueryParams = zod.object({
+  "documentId": zod.coerce.number().optional(),
+  "protocolId": zod.coerce.number().optional(),
+  "dossierId": zod.coerce.number().optional()
+})
+
+export const ListAttachmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "objectPath": zod.string(),
+  "originalName": zod.string(),
+  "mimeType": zod.string(),
+  "fileSize": zod.number(),
+  "documentId": zod.number().nullish(),
+  "protocolId": zod.number().nullish(),
+  "dossierId": zod.number().nullish(),
+  "uploadedById": zod.number().optional(),
+  "createdAt": zod.string()
+})
+export const ListAttachmentsResponse = zod.array(ListAttachmentsResponseItem)
+
+
+/**
+ * @summary Save an attachment record after upload
+ */
+export const CreateAttachmentBody = zod.object({
+  "objectPath": zod.string(),
+  "originalName": zod.string(),
+  "mimeType": zod.string(),
+  "fileSize": zod.number(),
+  "documentId": zod.number().optional(),
+  "protocolId": zod.number().optional(),
+  "dossierId": zod.number().optional()
+})
+
+export const CreateAttachmentResponse = zod.object({
+  "id": zod.number(),
+  "objectPath": zod.string(),
+  "originalName": zod.string(),
+  "mimeType": zod.string(),
+  "fileSize": zod.number(),
+  "documentId": zod.number().nullish(),
+  "protocolId": zod.number().nullish(),
+  "dossierId": zod.number().nullish(),
+  "uploadedById": zod.number().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete an attachment
+ */
+export const DeleteAttachmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAttachmentResponse = zod.void()
+
+
+/**
  * @summary Get dashboard statistics
  */
 export const GetDashboardStatsResponse = zod.object({

@@ -7,3 +7,4 @@ export * from "./tasks";
 export * from "./workflows";
 export * from "./signatures";
 export * from "./assignments";
+export * from "./attachments";

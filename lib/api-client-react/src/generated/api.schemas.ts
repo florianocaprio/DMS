@@ -630,6 +630,57 @@ export interface SearchResults {
   limit: number;
 }
 
+export interface ErrorEnvelope {
+  error: string;
+}
+
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
+export interface FileAttachment {
+  id: number;
+  objectPath: string;
+  originalName: string;
+  mimeType: string;
+  fileSize: number;
+  /** @nullable */
+  documentId?: number | null;
+  /** @nullable */
+  protocolId?: number | null;
+  /** @nullable */
+  dossierId?: number | null;
+  uploadedById?: number;
+  createdAt: string;
+}
+
+export interface CreateAttachmentInput {
+  objectPath: string;
+  originalName: string;
+  mimeType: string;
+  fileSize: number;
+  documentId?: number;
+  protocolId?: number;
+  dossierId?: number;
+}
+
+export type ListAttachmentsParams = {
+documentId?: number;
+protocolId?: number;
+dossierId?: number;
+};
+
 export type ListDocumentsParams = {
 status?: string;
 type?: string;

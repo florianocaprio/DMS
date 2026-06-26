@@ -29,6 +29,8 @@ tags:
     description: Dashboard and statistics
   - name: search
     description: Document search
+  - name: Storage
+    description: Object storage upload and serving endpoints.
 
 paths:
   /healthz:
@@ -43,6 +45,135 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # --- STORAGE ---
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an uploaded object
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  # --- ATTACHMENTS ---
+  /attachments:
+    get:
+      tags: [Storage]
+      operationId: listAttachments
+      summary: List file attachments
+      parameters:
+        - name: documentId
+          in: query
+          schema:
+            type: integer
+        - name: protocolId
+          in: query
+          schema:
+            type: integer
+        - name: dossierId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of attachments.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FileAttachment'
+    post:
+      tags: [Storage]
+      operationId: createAttachment
+      summary: Save an attachment record after upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAttachmentInput'
+      responses:
+        '201':
+          description: Attachment created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileAttachment'
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /attachments/{id}:
+    delete:
+      tags: [Storage]
+      operationId: deleteAttachment
+      summary: Delete an attachment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted.
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   # --- DASHBOARD ---
   /dashboard/stats:
@@ -2219,3 +2350,81 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+
+    # --- STORAGE & ATTACHMENTS ---
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
+
+    FileAttachment:
+      type: object
+      required: [id, objectPath, originalName, mimeType, fileSize, createdAt]
+      properties:
+        id:
+          type: integer
+        objectPath:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+        documentId:
+          type: ["integer", "null"]
+        protocolId:
+          type: ["integer", "null"]
+        dossierId:
+          type: ["integer", "null"]
+        uploadedById:
+          type: integer
+        createdAt:
+          type: string
+
+    CreateAttachmentInput:
+      type: object
+      required: [objectPath, originalName, mimeType, fileSize]
+      properties:
+        objectPath:
+          type: string
+        originalName:
+          type: string
+        mimeType:
+          type: string
+        fileSize:
+          type: integer
+        documentId:
+          type: integer
+        protocolId:
+          type: integer
+        dossierId:
+          type: integer
