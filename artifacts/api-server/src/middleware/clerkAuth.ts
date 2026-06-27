@@ -10,6 +10,9 @@ const ALLOWED_DOMAIN = "angeliinmoto.it";
 // Paths (relative to the /api mount) that are reachable without authentication.
 const PUBLIC_PATHS = new Set(["/healthz"]);
 
+// Emails that are always provisioned (and kept) as system administrators.
+const ADMIN_EMAILS = new Set(["info@angeliinmoto.it"]);
+
 export class DomainNotAllowedError extends Error {
   constructor(email: string) {
     super(`L'accesso è riservato agli account @${ALLOWED_DOMAIN} (${email}).`);
@@ -79,17 +82,25 @@ async function resolveLocalUser(clerkUserId: string): Promise<ResolvedUser> {
     .where(eq(usersTable.email, email))
     .limit(1);
 
+  const isAdmin = ADMIN_EMAILS.has(email);
+
   let row;
   if (existingByEmail) {
     [row] = await db
       .update(usersTable)
-      .set({ clerkUserId, lastLoginAt: new Date(), avatarUrl: existingByEmail.avatarUrl ?? avatarUrl })
+      .set({
+        clerkUserId,
+        lastLoginAt: new Date(),
+        avatarUrl: existingByEmail.avatarUrl ?? avatarUrl,
+        // Ensure designated admins keep the admin role; never downgrade others.
+        ...(isAdmin ? { role: "admin" } : {}),
+      })
       .where(eq(usersTable.id, existingByEmail.id))
       .returning();
   } else {
     [row] = await db
       .insert(usersTable)
-      .values({ clerkUserId, email, name, avatarUrl, lastLoginAt: new Date() })
+      .values({ clerkUserId, email, name, avatarUrl, lastLoginAt: new Date(), ...(isAdmin ? { role: "admin" } : {}) })
       .returning();
   }
 
