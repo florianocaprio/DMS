@@ -1,0 +1,301 @@
+Ecco il prompt per il DMS:
+
+Prompt per Replit — DMS (ProtocolloDigitale)
+Devo aggiungere un wizard di primo avvio al sistema DMS (ProtocolloDigitale).
+Attualmente il sistema usa Clerk per l'autenticazione Google SSO e ha già un
+meccanismo di bootstrap basilare. Devo sostituirlo con un wizard completo a 4 step.
+
+---
+
+## CONTESTO ATTUALE
+
+Il sistema ha già:
+- Autenticazione tramite Clerk (Google SSO) — NON username/password
+- `artifacts/api-server/src/routes/bootstrap.ts` → endpoint pubblici:
+  - GET /bootstrap/status → { needed: true/false }
+  - POST /bootstrap/admin → crea il primo admin leggendo identità da Clerk
+- `artifacts/api-server/src/middleware/clerkAuth.ts` → resolveLocalUser() che
+  auto-provisiona utenti al primo login Google
+- `artifacts/dms/src/pages/bootstrap.tsx` → schermata di bootstrap attuale
+  (da sostituire con il wizard)
+- `artifacts/dms/src/App.tsx` → BootstrapGuard che intercetta il flusso
+- `app_settings` table nel DB (chiave/valore) già esistente
+- Tabella `users` con campi: id, clerkUserId, email, name, role, area,
+  section, avatarUrl, isActive, lastLoginAt
+- Stack backend: Node/Express + Drizzle ORM + TypeScript
+- Stack frontend: React + Wouter + shadcn/ui + TanStack Query
+- L'utente è già autenticato con Google quando vede il wizard: il token Clerk
+  è disponibile, email e nome vengono da lì automaticamente
+
+DIFFERENZA CHIAVE rispetto al Magazzino Solidale: qui NON si sceglie username
+né password — l'identità dell'admin viene estratta automaticamente dal token
+Clerk già presente. Il wizard chiede solo i dati aggiuntivi (organizzazione,
+magazzino predefinito) e i dati di profilo mancanti (telefono, sezione/area).
+
+---
+
+## COSA COSTRUIRE
+
+### 1. BACKEND — sostituire routes/bootstrap.ts
+
+Mantieni GET /bootstrap/status invariato (serve a BootstrapGuard).
+
+Sostituisci POST /bootstrap/admin con un nuovo endpoint:
+
+`POST /bootstrap/complete`
+
+Pubblico (prima di requireAuth), attivo SOLO se GET /bootstrap/status
+ritorna { needed: true }. Se il sistema è già configurato risponde 409.
+
+Payload JSON:
+
+```json
+{
+  "admin": {
+    "area": "string|null",
+    "section": "string|null",
+    "telefono": "string|null"
+  },
+  "organizzazione": {
+    "nome": "string (required)",
+    "tipologia": "associazione|parrocchia|azienda|cooperativa|comune|altro",
+    "email": "string|null",
+    "telefono": "string|null",
+    "indirizzo": "string|null",
+    "citta": "string|null"
+  },
+  "protocollo": {
+    "prefisso": "string (required)",
+    "anno": "number (required, es. 2026)",
+    "descrizione": "string|null"
+  }
+}
+```
+
+Il backend esegue tutto in una singola transazione Drizzle:
+
+1. Verifica che isBootstrapMode() sia true (conteggio users = 0),
+   altrimenti 409.
+
+2. Legge l'identità dell'utente dal token Clerk (getAuth(req).userId),
+   poi chiama clerkClient.users.getUser() per ottenere email e nome.
+   Se non c'è sessione Clerk attiva risponde 401.
+
+3. Crea il primo utente nella tabella users:
+   - clerkUserId dal token
+   - email e name da Clerk
+   - role: "admin"
+   - area e section dal payload admin (possono essere null)
+   - lastLoginAt: now()
+
+4. Salva i dati organizzazione in app_settings con chiavi:
+   - org.nome
+   - org.tipologia
+   - org.email
+   - org.telefono
+   - org.indirizzo
+   - org.citta
+   - setup.completedAt (timestamp ISO)
+
+5. Salva i dati del protocollo in app_settings con chiavi:
+   - protocollo.prefisso
+   - protocollo.anno
+   - protocollo.descrizione
+
+6. Assicura che esista il fascicolo di default "Archivio Documenti"
+   chiamando la funzione ensureDefaultDossier() già presente in
+   lib/ensureDefaults.ts.
+
+Risposta successo: 201 con { ok: true }.
+
+Aggiorna isBootstrapAllowedRequest in clerkAuth.ts per includere
+POST /bootstrap/complete nella whitelist pubblica (senza auth).
+Rimuovi POST /bootstrap/admin dalla whitelist se non serve più.
+
+---
+
+### 2. FRONTEND — wizard a 3 step
+
+Sostituisci completamente artifacts/dms/src/pages/bootstrap.tsx
+con un wizard a 3 step (non 4 come nel Magazzino Solidale, perché
+non c'è lo step credenziali — Clerk ci pensa già).
+
+Il wizard usa SOLO stato React locale. Nessuna chiamata API intermedia.
+L'unica chiamata è la POST finale al completamento dello step 3.
+
+Layout generale:
+- Sfondo: bg-background min-h-[100dvh]
+- Card centrata: max-w-lg w-full, rounded-2xl, border, shadow-sm
+- In cima: logo AIM (già importato in App.tsx come logoUrl), titolo
+  "Configurazione iniziale", badge "Primo avvio" in amber
+- Indicatore step: "Passo N di 3" + barra di progresso (usa il
+  componente Progress di shadcn/ui)
+- Bottoni "Indietro" / "Avanti" / "Avvia sistema" in fondo
+
+---
+
+#### STEP 1 — Organizzazione
+
+Titolo: "La tua organizzazione"
+Sottotitolo: "Questi dati verranno usati per intestare protocolli e documenti."
+
+Campi:
+- Nome organizzazione* (required)
+  placeholder: "es. Parrocchia San Giovanni / ASD Angeli in Moto"
+- Tipologia* (required) — Select:
+  - associazione → "Associazione di volontariato / APS"
+  - parrocchia → "Parrocchia / Ente religioso"
+  - azienda → "Azienda / Cooperativa sociale"
+  - comune → "Comune / Ente pubblico"
+  - altro → "Altro"
+- Email istituzionale (opzionale)
+- Telefono (opzionale)
+- Indirizzo sede (opzionale)
+- Città (opzionale)
+
+Validazione "Avanti": nome e tipologia obbligatori.
+
+---
+
+#### STEP 2 — Impostazioni protocollo
+
+Titolo: "Protocollo documenti"
+Sottotitolo: "Definisce come verranno numerati i protocolli in entrata e uscita."
+
+Banner informativo (blue, icona FileText):
+"Il prefisso identifica la tua organizzazione nei numeri di protocollo.
+Esempio: con prefisso 'AIM' i protocolli saranno AIM-2026-E-000001."
+
+Campi:
+- Prefisso protocollo* (required, max 6 caratteri, uppercase automatico)
+  placeholder: "es. AIM"
+  note sotto: "Da 2 a 6 lettere, senza spazi. Non modificabile dopo l'avvio."
+- Anno di avvio* (required, default: anno corrente)
+  note sotto: "Anno da cui parte la numerazione dei protocolli."
+- Descrizione registro (opzionale)
+  placeholder: "es. Registro protocolli Angeli in Moto"
+
+Validazione "Avanti":
+- prefisso obbligatorio, solo lettere A-Z, lunghezza 2-6
+- anno obbligatorio, intero >= 2020
+
+---
+
+#### STEP 3 — Profilo amministratore + Riepilogo
+
+Titolo: "Il tuo profilo e riepilogo"
+Sottotitolo: "Completa il tuo profilo amministratore e verifica i dati."
+
+Sezione profilo (prima):
+Banner che mostra l'identità Google già autenticata (read-only):
+- Avatar (useUser() di Clerk oppure avatarUrl), nome, email
+  con label "Account Google — verificato" e badge verde
+
+Campi aggiuntivi del profilo (editabili):
+- Area / Ufficio (opzionale) — es. "Segreteria", "Direzione"
+- Sezione (opzionale) — es. "Front Office"
+- Cellulare (opzionale)
+
+Separatore visivo poi sezione riepilogo (read-only):
+
+Riepilogo "Organizzazione":
+- Nome, Tipologia (label leggibile), Email, Telefono, Città
+
+Riepilogo "Protocollo":
+- Prefisso, Anno, Descrizione
+- Esempio numero generato: "{PREFISSO}-{ANNO}-E-000001" in stile codice (font-mono)
+
+Bottone: "Avvia sistema" (primary, full width)
+- Durante pending: spinner + "Configurazione in corso..."
+- In caso di errore: alert rosso sotto con messaggio ricevuto dal server
+
+---
+
+#### Dopo il successo
+
+Quando POST /bootstrap/complete risponde 201:
+1. Invalida la query di bootstrap status nel QueryClient TanStack:
+   queryClient.invalidateQueries({ queryKey: ["bootstrap", "status"] })
+   oppure chiama onComplete() che è già la prop passata da BootstrapGuard
+   in App.tsx — questo fa uscire automaticamente dal wizard e mostra l'app.
+2. Mostra un toast: "Sistema configurato. Benvenuto in ProtocolloDigitale."
+
+---
+
+### 3. AGGIORNAMENTI IN App.tsx
+
+BootstrapGuard rimane invariato nella logica.
+Aggiorna solo l'import della pagina bootstrap se il componente
+esportato cambia nome (mantieni il nome BootstrapScreen per
+non dover toccare App.tsx).
+
+---
+
+### 4. HELPER lib/orgSettings.ts
+
+Crea artifacts/api-server/src/lib/orgSettings.ts con una funzione:
+
+```typescript
+export async function getOrgSettings(db: DrizzleDb): Promise<{
+  nome: string;
+  tipologia: string;
+  email: string | null;
+  telefono: string | null;
+  indirizzo: string | null;
+  citta: string | null;
+  prefissoProtocollo: string;
+}> 
+```
+
+Legge le chiavi org.* e protocollo.* da app_settings.
+Usala nella route GET /settings già esistente per includere
+questi valori nella risposta (così il frontend può mostrarli
+nelle impostazioni dopo il setup).
+
+---
+
+### 5. COSA NON FARE
+
+- Non modificare la logica di autenticazione Clerk
+- Non aggiungere upload logo nel wizard (si fa dopo dalle impostazioni)
+- Non toccare requireAuth, clerkProxyMiddleware, auditLogMiddleware
+- Non modificare la struttura delle route esistenti
+- Non aggiungere dipendenze npm non già presenti nel progetto
+- Non usare react-hook-form o altre librerie di form: useState basta
+- Non modificare la tabella users né aggiungere colonne (telefono va
+  in app_settings come admin.telefono, non nella tabella)
+
+---
+
+### 6. TEST
+
+Aggiungi un file artifacts/api-server/src/__tests__/bootstrap.test.ts
+con test che verificano:
+- GET /bootstrap/status su DB vuoto → { needed: true }
+- GET /bootstrap/status con un admin esistente → { needed: false }
+- POST /bootstrap/complete con payload valido e sessione Clerk mockata → 201
+- POST /bootstrap/complete su sistema già configurato → 409
+- POST /bootstrap/complete senza sessione Clerk → 401
+- POST /bootstrap/complete con prefisso non valido (spazi, troppo lungo) → 400
+- POST /bootstrap/complete senza nome organizzazione → 400
+
+Usa la stessa struttura dei test già presenti in
+artifacts/api-server/src/__tests__/helpers.ts.
+
+---
+
+### 7. MAPPA FILE DA CREARE / MODIFICARE
+
+NUOVO:
+- artifacts/api-server/src/lib/orgSettings.ts
+- artifacts/dms/src/__tests__/bootstrap.test.ts
+
+MODIFICATO:
+- artifacts/api-server/src/routes/bootstrap.ts
+  (aggiungi POST /bootstrap/complete, mantieni GET /bootstrap/status)
+- artifacts/api-server/src/middleware/clerkAuth.ts
+  (aggiorna isBootstrapAllowedRequest o equivalente)
+- artifacts/dms/src/pages/bootstrap.tsx
+  (sostituisci completamente con il wizard a 3 step)
+- artifacts/api-server/src/routes/settings.ts
+  (usa getOrgSettings nella GET /settings)
