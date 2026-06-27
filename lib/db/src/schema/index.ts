@@ -3,6 +3,7 @@ export * from "./classifications";
 export * from "./dossiers";
 export * from "./documents";
 export * from "./protocols";
+export * from "./protocolDossiers";
 export * from "./tasks";
 export * from "./workflows";
 export * from "./dossierWorkflows";

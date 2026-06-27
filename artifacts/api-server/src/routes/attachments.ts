@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { fileAttachmentsTable, protocolsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { fileAttachmentsTable, protocolsTable, usersTable, activityLogTable } from "@workspace/db";
+import { eq, and, isNull } from "drizzle-orm";
 import {
   getDriveSettings,
   getOrCreateProtocolFolder,
@@ -19,22 +19,38 @@ const router: IRouter = Router();
 
 router.get("/attachments", async (req: Request, res: Response) => {
   try {
-    const { documentId, protocolId, dossierId } = req.query;
+    const { documentId, protocolId, dossierId, includeRemoved } = req.query;
     const conditions = [];
     if (documentId) conditions.push(eq(fileAttachmentsTable.documentId, Number(documentId)));
     if (protocolId)  conditions.push(eq(fileAttachmentsTable.protocolId, Number(protocolId)));
     if (dossierId)   conditions.push(eq(fileAttachmentsTable.dossierId, Number(dossierId)));
+    if (includeRemoved !== "true") conditions.push(isNull(fileAttachmentsTable.removedAt));
 
     const rows = conditions.length > 0
       ? await db.select().from(fileAttachmentsTable).where(and(...conditions)).orderBy(fileAttachmentsTable.createdAt)
       : await db.select().from(fileAttachmentsTable).orderBy(fileAttachmentsTable.createdAt);
 
-    res.json(rows);
+    const users = await db.select().from(usersTable);
+    const userMap = Object.fromEntries(users.map((u) => [u.id, u.name]));
+    res.json(rows.map((r) => fmtAttachment(r, userMap)));
   } catch (err) {
     req.log.error({ err }, "Error listing attachments");
     res.status(500).json({ error: "Failed to list attachments" });
   }
 });
+
+function fmtAttachment(
+  r: typeof fileAttachmentsTable.$inferSelect,
+  userMap: Record<number, string>,
+) {
+  return {
+    ...r,
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+    removedAt: r.removedAt instanceof Date ? r.removedAt.toISOString() : r.removedAt,
+    uploadedByName: userMap[r.uploadedById] ?? "Sconosciuto",
+    removedByName: r.removedById ? (userMap[r.removedById] ?? null) : null,
+  };
+}
 
 router.post("/attachments", async (req: Request, res: Response) => {
   try {
@@ -61,6 +77,8 @@ router.post("/attachments", async (req: Request, res: Response) => {
 
     res.status(201).json(created);
 
+    await logAttachmentActivity("file_added", `File "${originalName}" caricato`, documentId, protocolId);
+
     // Async Drive sync — does not block the HTTP response
     syncToDrive(created.id, objectPath, originalName, mimeType, req.log, protocolId).catch(() => {});
   } catch (err) {
@@ -73,16 +91,34 @@ router.delete("/attachments/:id", async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     const [row] = await db.select().from(fileAttachmentsTable).where(eq(fileAttachmentsTable.id, id));
-    await db.delete(fileAttachmentsTable).where(eq(fileAttachmentsTable.id, id));
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    if (row.removedAt) { res.status(204).end(); return; }
+
+    // Soft delete: keep the record as evidence of who removed the file and when.
+    await db.update(fileAttachmentsTable)
+      .set({ removedAt: new Date(), removedById: 1 })
+      .where(eq(fileAttachmentsTable.id, id));
     res.status(204).end();
 
-    if (row?.driveFileId) deleteFileFromDrive(row.driveFileId).catch(() => {});
-    if (row?.protocolId)  regenerateProtocolXml(row.protocolId, req.log).catch(() => {});
+    await logAttachmentActivity("file_removed", `File "${row.originalName}" rimosso`, row.documentId ?? undefined, row.protocolId ?? undefined);
+
+    if (row.driveFileId) deleteFileFromDrive(row.driveFileId).catch(() => {});
+    if (row.protocolId)  regenerateProtocolXml(row.protocolId, req.log).catch(() => {});
   } catch (err) {
     req.log.error({ err }, "Error deleting attachment");
     res.status(500).json({ error: "Failed to delete attachment" });
   }
 });
+
+async function logAttachmentActivity(type: string, description: string, documentId?: number, protocolId?: number) {
+  await db.insert(activityLogTable).values({
+    type,
+    description,
+    userId: 1,
+    documentId: documentId ?? null,
+    protocolId: protocolId ?? null,
+  });
+}
 
 // ── Timbro digitale ───────────────────────────────────────────────────────
 router.post("/attachments/:id/stamp", async (req: Request, res: Response) => {

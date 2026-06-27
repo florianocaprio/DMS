@@ -14,6 +14,8 @@ export const fileAttachmentsTable = pgTable("file_attachments", {
   uploadedById: integer("uploaded_by_id").notNull().default(1),
   driveFileId: text("drive_file_id"),
   driveViewLink: text("drive_view_link"),
+  removedAt: timestamp("removed_at", { withTimezone: true }),
+  removedById: integer("removed_by_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

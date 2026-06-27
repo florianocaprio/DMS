@@ -11,6 +11,7 @@ export const dossiersTable = pgTable("dossiers", {
   year: integer("year").notNull(),
   area: text("area"),
   confidentiality: text("confidentiality").notNull().default("normal"),
+  parentId: integer("parent_id"),
   responsibleId: integer("responsible_id"),
   classificationId: integer("classification_id"),
   openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),

@@ -19,5 +19,13 @@ export interface FileAttachment {
   /** @nullable */
   dossierId?: number | null;
   uploadedById?: number;
+  /** @nullable */
+  uploadedByName?: string | null;
+  /** @nullable */
+  removedAt?: string | null;
+  /** @nullable */
+  removedById?: number | null;
+  /** @nullable */
+  removedByName?: string | null;
   createdAt: string;
 }

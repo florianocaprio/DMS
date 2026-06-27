@@ -122,6 +122,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: includeRemoved
+          in: query
+          description: Include soft-deleted (removed) attachments in the result
+          schema:
+            type: ["boolean", "null"]
       responses:
         '200':
           description: List of attachments.
@@ -539,6 +544,74 @@ paths:
               schema:
                 $ref: "#/components/schemas/Protocol"
 
+  /protocols/{id}/dossiers:
+    get:
+      operationId: listProtocolDossiers
+      tags: [protocols]
+      summary: List the dossiers a protocol is filed in
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dossier memberships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProtocolDossierMembership"
+    post:
+      operationId: addProtocolDossier
+      tags: [protocols]
+      summary: File a protocol into an additional dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddProtocolDossierInput"
+      responses:
+        "201":
+          description: Membership created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "404":
+          description: Not found
+
+  /protocols/{id}/dossiers/{dossierId}:
+    delete:
+      operationId: removeProtocolDossier
+      tags: [protocols]
+      summary: Remove a protocol from a dossier (the protocol itself is preserved)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dossierId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+        "404":
+          description: Not found
+
   /protocols/summary:
     get:
       operationId: getProtocolSummary
@@ -685,6 +758,27 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Protocol"
+
+  /dossiers/{id}/children:
+    get:
+      operationId: getDossierChildren
+      tags: [dossiers]
+      summary: List sub-dossiers (sotto-fascicoli) of a dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sub-dossiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dossier"
 
   # --- DOSSIER WORKFLOWS ---
   /dossiers/{id}/workflow-rules:
@@ -1795,6 +1889,11 @@ components:
           type: string
         dossierId:
           type: ["integer", "null"]
+        dossierIds:
+          type: array
+          description: Additional dossiers to file this protocol into (besides the primary dossierId)
+          items:
+            type: integer
         classificationId:
           type: ["integer", "null"]
         documentId:
@@ -1925,6 +2024,15 @@ components:
         confidentiality:
           type: string
           default: normal
+        parentId:
+          type: ["integer", "null"]
+        parentCode:
+          type: ["string", "null"]
+        parentTitle:
+          type: ["string", "null"]
+        childCount:
+          type: integer
+          default: 0
         responsibleId:
           type: ["integer", "null"]
         responsibleName:
@@ -1962,6 +2070,8 @@ components:
           type: string
         confidentiality:
           type: string
+        parentId:
+          type: ["integer", "null"]
         responsibleId:
           type: ["integer", "null"]
         classificationId:
@@ -1980,6 +2090,8 @@ components:
           type: string
         confidentiality:
           type: string
+        parentId:
+          type: ["integer", "null"]
         responsibleId:
           type: ["integer", "null"]
         classificationId:
@@ -2723,6 +2835,14 @@ components:
           type: ["integer", "null"]
         uploadedById:
           type: integer
+        uploadedByName:
+          type: ["string", "null"]
+        removedAt:
+          type: ["string", "null"]
+        removedById:
+          type: ["integer", "null"]
+        removedByName:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -2744,3 +2864,42 @@ components:
           type: integer
         dossierId:
           type: integer
+
+    ProtocolDossierMembership:
+      type: object
+      required: [id, protocolId, dossierId, isPrimary]
+      properties:
+        id:
+          type: integer
+        protocolId:
+          type: integer
+        dossierId:
+          type: integer
+        dossierCode:
+          type: ["string", "null"]
+        dossierTitle:
+          type: ["string", "null"]
+        isPrimary:
+          type: boolean
+        addedById:
+          type: ["integer", "null"]
+        addedByName:
+          type: ["string", "null"]
+        addedAt:
+          type: ["string", "null"]
+
+    AddProtocolDossierInput:
+      type: object
+      required: [dossierId]
+      properties:
+        dossierId:
+          type: integer
+        isPrimary:
+          type: boolean
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean

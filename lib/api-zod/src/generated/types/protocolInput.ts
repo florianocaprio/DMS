@@ -18,6 +18,8 @@ export interface ProtocolInput {
   priority?: string;
   /** @nullable */
   dossierId?: number | null;
+  /** Additional dossiers to file this protocol into (besides the primary dossierId) */
+  dossierIds?: number[];
   /** @nullable */
   classificationId?: number | null;
   /** @nullable */

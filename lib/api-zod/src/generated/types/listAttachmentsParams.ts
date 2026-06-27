@@ -10,4 +10,9 @@ export type ListAttachmentsParams = {
 documentId?: number;
 protocolId?: number;
 dossierId?: number;
+/**
+ * Include soft-deleted (removed) attachments in the result
+ * @nullable
+ */
+includeRemoved?: boolean | null;
 };

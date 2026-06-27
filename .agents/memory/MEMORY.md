@@ -1,1 +1,3 @@
-- [Orval query-key invalidation](orval-query-keys.md) — Orval RQ keys are URL-based (`/api/...`); invalidate by URL prefix or predicate, never by operation name.
+- [Protocol↔dossier primary invariant](protocol-dossier-primary.md) — exactly one primary membership; first filing always primary; mutate in a tx so protocols.dossierId never desyncs from the junction.
+- [Drizzle onConflict empty set](drizzle-onconflict-empty-set.md) — onConflictDoUpdate with `set: {}` crashes "No values to set"; use onConflictDoNothing for the no-op branch.
+- [Duplicate artifact workflows](duplicate-artifact-workflows.md) — artifact-managed `artifacts/<dir>: <name>` workflows can collide on ports with hand-made ones; keep only the artifact-managed set.

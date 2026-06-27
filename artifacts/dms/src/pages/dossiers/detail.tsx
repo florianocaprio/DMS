@@ -3,12 +3,15 @@ import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/shared/status-badges";
 import { useToast } from "@/hooks/use-toast";
 import DossierWorkflowTab from "./workflow-tab";
 import {
   ArrowLeft,
   FolderOpen,
+  FolderTree,
+  Plus,
   FileText,
   Files,
   Edit2,
@@ -33,6 +36,10 @@ interface Dossier {
   year: number;
   area: string | null;
   confidentiality: string;
+  parentId: number | null;
+  parentCode: string | null;
+  parentTitle: string | null;
+  childCount: number;
   responsibleId: number | null;
   responsibleName: string | null;
   classificationId: number | null;
@@ -111,7 +118,16 @@ const TYPE_LABELS: Record<string, string> = {
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
-type Tab = "documents" | "protocols" | "workflow";
+type Tab = "documents" | "protocols" | "subdossiers" | "workflow";
+
+interface SubDossier {
+  id: number;
+  code: string;
+  title: string;
+  status: string;
+  documentCount: number;
+  protocolCount: number;
+}
 
 interface Props {
   id: string;
@@ -125,10 +141,16 @@ export default function DossierDetail({ id }: Props) {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [protocols, setProtocols] = useState<Protocol[]>([]);
+  const [children, setChildren] = useState<SubDossier[]>([]);
   const [tab, setTab] = useState<Tab>("documents");
   const [loading, setLoading] = useState(true);
   const [loadingTab, setLoadingTab] = useState(false);
   const [notFound, setNotFound] = useState(false);
+
+  // Sub-dossier creation
+  const [showNewChild, setShowNewChild] = useState(false);
+  const [childTitle, setChildTitle] = useState("");
+  const [creatingChild, setCreatingChild] = useState(false);
 
   // Edit state
   const [editing, setEditing] = useState(false);
@@ -161,14 +183,39 @@ export default function DossierDetail({ id }: Props) {
       if (t === "documents") {
         const docs = await apiFetch<Document[]>(`/dossiers/${dossierId}/documents`);
         setDocuments(docs);
-      } else {
+      } else if (t === "protocols") {
         const prots = await apiFetch<Protocol[]>(`/dossiers/${dossierId}/protocols`);
         setProtocols(prots);
+      } else {
+        const subs = await apiFetch<SubDossier[]>(`/dossiers/${dossierId}/children`);
+        setChildren(subs);
       }
     } catch (e) {
       toast({ title: "Errore", description: String(e), variant: "destructive" });
     } finally {
       setLoadingTab(false);
+    }
+  };
+
+  const handleCreateChild = async () => {
+    if (!childTitle.trim()) return;
+    setCreatingChild(true);
+    try {
+      await apiFetch<Dossier>(`/dossiers`, {
+        method: "POST",
+        body: JSON.stringify({ title: childTitle.trim(), parentId: dossierId }),
+      });
+      setChildTitle("");
+      setShowNewChild(false);
+      const subs = await apiFetch<SubDossier[]>(`/dossiers/${dossierId}/children`);
+      setChildren(subs);
+      const refreshed = await apiFetch<Dossier>(`/dossiers/${dossierId}`);
+      setDossier(refreshed);
+      toast({ title: "Sotto-fascicolo creato" });
+    } catch (e) {
+      toast({ title: "Errore", description: String(e), variant: "destructive" });
+    } finally {
+      setCreatingChild(false);
     }
   };
 
@@ -221,6 +268,14 @@ export default function DossierDetail({ id }: Props) {
         <div className="flex items-center gap-1.5 text-sm">
           <Link href="/dossiers" className="text-muted-foreground hover:text-foreground transition-colors">Fascicoli</Link>
           <span className="text-muted-foreground">/</span>
+          {dossier.parentId && (
+            <>
+              <Link href={`/dossiers/${dossier.parentId}`} className="text-muted-foreground hover:text-foreground transition-colors font-mono text-xs">
+                {dossier.parentCode ?? dossier.parentTitle}
+              </Link>
+              <span className="text-muted-foreground">/</span>
+            </>
+          )}
           <span className="font-medium font-mono text-xs">{dossier.code}</span>
         </div>
 
@@ -349,7 +404,7 @@ export default function DossierDetail({ id }: Props) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => loadTab("documents")}
             className={`bg-card border rounded-lg p-4 text-left transition-colors ${tab === "documents" ? "border-primary" : "border-border hover:border-primary/40"}`}
@@ -370,13 +425,23 @@ export default function DossierDetail({ id }: Props) {
             </div>
             <div className="text-2xl font-bold text-foreground">{dossier.protocolCount}</div>
           </button>
+          <button
+            onClick={() => loadTab("subdossiers")}
+            className={`bg-card border rounded-lg p-4 text-left transition-colors ${tab === "subdossiers" ? "border-primary" : "border-border hover:border-primary/40"}`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <FolderTree className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Sotto-fascicoli</span>
+            </div>
+            <div className="text-2xl font-bold text-foreground">{dossier.childCount}</div>
+          </button>
         </div>
 
         {/* Tab content */}
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           {/* Tab header */}
           <div className="flex border-b border-border">
-            {([["documents", "Documenti", FileText], ["protocols", "Protocolli", Files], ["workflow", "Workflow", GitMerge]] as const).map(([t, label, Icon]) => (
+            {([["documents", "Documenti", FileText], ["protocols", "Protocolli", Files], ["subdossiers", "Sotto-fascicoli", FolderTree], ["workflow", "Workflow", GitMerge]] as const).map(([t, label, Icon]) => (
               <button
                 key={t}
                 onClick={() => loadTab(t)}
@@ -475,6 +540,68 @@ export default function DossierDetail({ id }: Props) {
                 </tbody>
               </table>
             )
+          )}
+
+          {/* Sub-dossiers tab */}
+          {tab === "subdossiers" && (
+            <div>
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/40">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sotto-fascicoli</span>
+                <Button size="sm" variant="outline" onClick={() => setShowNewChild((v) => !v)}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Nuovo sotto-fascicolo
+                </Button>
+              </div>
+              {showNewChild && (
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/20">
+                  <Input
+                    value={childTitle}
+                    onChange={(e) => setChildTitle(e.target.value)}
+                    placeholder="Titolo del sotto-fascicolo"
+                    className="flex-1"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleCreateChild(); }}
+                  />
+                  <Button size="sm" onClick={handleCreateChild} disabled={creatingChild || !childTitle.trim()}>
+                    {creatingChild ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Crea"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setShowNewChild(false); setChildTitle(""); }}>Annulla</Button>
+                </div>
+              )}
+              {loadingTab ? (
+                <div className="p-8 text-center"><RefreshCw className="w-4 h-4 animate-spin text-muted-foreground mx-auto" /></div>
+              ) : children.length === 0 ? (
+                <div className="p-8 text-center">
+                  <FolderTree className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Nessun sotto-fascicolo</p>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/40 border-b border-border">
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Codice</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Titolo</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stato</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Doc.</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Prot.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {children.map((c) => (
+                      <tr key={c.id} className="border-t border-border/50 hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <Link href={`/dossiers/${c.id}`} className="font-mono text-xs font-medium text-foreground hover:text-primary transition-colors">{c.code}</Link>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Link href={`/dossiers/${c.id}`} className="font-medium text-foreground hover:text-primary transition-colors line-clamp-1">{c.title}</Link>
+                        </td>
+                        <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.documentCount}</td>
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.protocolCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           )}
 
           {/* Workflow tab */}

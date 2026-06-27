@@ -62,7 +62,8 @@ export const GetStorageObjectResponse = zod.unknown()
 export const ListAttachmentsQueryParams = zod.object({
   "documentId": zod.coerce.number().optional(),
   "protocolId": zod.coerce.number().optional(),
-  "dossierId": zod.coerce.number().optional()
+  "dossierId": zod.coerce.number().optional(),
+  "includeRemoved": zod.coerce.boolean().nullish().describe('Include soft-deleted (removed) attachments in the result')
 })
 
 export const ListAttachmentsResponseItem = zod.object({
@@ -75,6 +76,10 @@ export const ListAttachmentsResponseItem = zod.object({
   "protocolId": zod.number().nullish(),
   "dossierId": zod.number().nullish(),
   "uploadedById": zod.number().optional(),
+  "uploadedByName": zod.string().nullish(),
+  "removedAt": zod.string().nullish(),
+  "removedById": zod.number().nullish(),
+  "removedByName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListAttachmentsResponse = zod.array(ListAttachmentsResponseItem)
@@ -103,6 +108,10 @@ export const CreateAttachmentResponse = zod.object({
   "protocolId": zod.number().nullish(),
   "dossierId": zod.number().nullish(),
   "uploadedById": zod.number().optional(),
+  "uploadedByName": zod.string().nullish(),
+  "removedAt": zod.string().nullish(),
+  "removedById": zod.number().nullish(),
+  "removedByName": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -705,6 +714,7 @@ export const CreateProtocolBody = zod.object({
   "confidentiality": zod.string().optional(),
   "priority": zod.string().optional(),
   "dossierId": zod.number().nullish(),
+  "dossierIds": zod.array(zod.number()).optional().describe('Additional dossiers to file this protocol into (besides the primary dossierId)'),
   "classificationId": zod.number().nullish(),
   "documentId": zod.number().nullish(),
   "assignedToId": zod.number().nullish(),
@@ -897,6 +907,55 @@ export const CancelProtocolResponse = zod.object({
 
 
 /**
+ * @summary List the dossiers a protocol is filed in
+ */
+export const ListProtocolDossiersParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListProtocolDossiersResponseItem = zod.object({
+  "id": zod.number(),
+  "protocolId": zod.number(),
+  "dossierId": zod.number(),
+  "dossierCode": zod.string().nullish(),
+  "dossierTitle": zod.string().nullish(),
+  "isPrimary": zod.boolean(),
+  "addedById": zod.number().nullish(),
+  "addedByName": zod.string().nullish(),
+  "addedAt": zod.string().nullish()
+})
+export const ListProtocolDossiersResponse = zod.array(ListProtocolDossiersResponseItem)
+
+
+/**
+ * @summary File a protocol into an additional dossier
+ */
+export const AddProtocolDossierParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AddProtocolDossierBody = zod.object({
+  "dossierId": zod.number(),
+  "isPrimary": zod.boolean().optional()
+})
+
+export const AddProtocolDossierResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Remove a protocol from a dossier (the protocol itself is preserved)
+ */
+export const RemoveProtocolDossierParams = zod.object({
+  "id": zod.coerce.number(),
+  "dossierId": zod.coerce.number()
+})
+
+export const RemoveProtocolDossierResponse = zod.void()
+
+
+/**
  * @summary Get protocol counts grouped by type and status
  */
 export const GetProtocolSummaryResponse = zod.object({
@@ -927,6 +986,7 @@ export const ListDossiersQueryParams = zod.object({
 })
 
 export const listDossiersResponseItemsItemConfidentialityDefault = `normal`;
+export const listDossiersResponseItemsItemChildCountDefault = 0;
 export const listDossiersResponseItemsItemDocumentCountDefault = 0;
 export const listDossiersResponseItemsItemProtocolCountDefault = 0;
 
@@ -940,6 +1000,10 @@ export const ListDossiersResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(listDossiersResponseItemsItemConfidentialityDefault),
+  "parentId": zod.number().nullish(),
+  "parentCode": zod.string().nullish(),
+  "parentTitle": zod.string().nullish(),
+  "childCount": zod.number().default(listDossiersResponseItemsItemChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
@@ -968,11 +1032,13 @@ export const CreateDossierBody = zod.object({
   "description": zod.string().optional(),
   "area": zod.string().optional(),
   "confidentiality": zod.string().optional(),
+  "parentId": zod.number().nullish(),
   "responsibleId": zod.number().nullish(),
   "classificationId": zod.number().nullish()
 })
 
 export const createDossierResponseConfidentialityDefault = `normal`;
+export const createDossierResponseChildCountDefault = 0;
 export const createDossierResponseDocumentCountDefault = 0;
 export const createDossierResponseProtocolCountDefault = 0;
 
@@ -985,6 +1051,10 @@ export const CreateDossierResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(createDossierResponseConfidentialityDefault),
+  "parentId": zod.number().nullish(),
+  "parentCode": zod.string().nullish(),
+  "parentTitle": zod.string().nullish(),
+  "childCount": zod.number().default(createDossierResponseChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
@@ -1006,6 +1076,7 @@ export const GetDossierParams = zod.object({
 })
 
 export const getDossierResponseConfidentialityDefault = `normal`;
+export const getDossierResponseChildCountDefault = 0;
 export const getDossierResponseDocumentCountDefault = 0;
 export const getDossierResponseProtocolCountDefault = 0;
 
@@ -1018,6 +1089,10 @@ export const GetDossierResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(getDossierResponseConfidentialityDefault),
+  "parentId": zod.number().nullish(),
+  "parentCode": zod.string().nullish(),
+  "parentTitle": zod.string().nullish(),
+  "childCount": zod.number().default(getDossierResponseChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
@@ -1044,12 +1119,14 @@ export const UpdateDossierBody = zod.object({
   "status": zod.string().optional(),
   "area": zod.string().optional(),
   "confidentiality": zod.string().optional(),
+  "parentId": zod.number().nullish(),
   "responsibleId": zod.number().nullish(),
   "classificationId": zod.number().nullish(),
   "closedAt": zod.string().nullish()
 })
 
 export const updateDossierResponseConfidentialityDefault = `normal`;
+export const updateDossierResponseChildCountDefault = 0;
 export const updateDossierResponseDocumentCountDefault = 0;
 export const updateDossierResponseProtocolCountDefault = 0;
 
@@ -1062,6 +1139,10 @@ export const UpdateDossierResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(updateDossierResponseConfidentialityDefault),
+  "parentId": zod.number().nullish(),
+  "parentCode": zod.string().nullish(),
+  "parentTitle": zod.string().nullish(),
+  "childCount": zod.number().default(updateDossierResponseChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
@@ -1162,6 +1243,45 @@ export const GetDossierProtocolsResponseItem = zod.object({
   "updatedAt": zod.string()
 })
 export const GetDossierProtocolsResponse = zod.array(GetDossierProtocolsResponseItem)
+
+
+/**
+ * @summary List sub-dossiers (sotto-fascicoli) of a dossier
+ */
+export const GetDossierChildrenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const getDossierChildrenResponseConfidentialityDefault = `normal`;
+export const getDossierChildrenResponseChildCountDefault = 0;
+export const getDossierChildrenResponseDocumentCountDefault = 0;
+export const getDossierChildrenResponseProtocolCountDefault = 0;
+
+export const GetDossierChildrenResponseItem = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.string(),
+  "year": zod.number(),
+  "area": zod.string().nullish(),
+  "confidentiality": zod.string().default(getDossierChildrenResponseConfidentialityDefault),
+  "parentId": zod.number().nullish(),
+  "parentCode": zod.string().nullish(),
+  "parentTitle": zod.string().nullish(),
+  "childCount": zod.number().default(getDossierChildrenResponseChildCountDefault),
+  "responsibleId": zod.number().nullish(),
+  "responsibleName": zod.string().nullish(),
+  "classificationId": zod.number().nullish(),
+  "classificationCode": zod.string().nullish(),
+  "documentCount": zod.number().default(getDossierChildrenResponseDocumentCountDefault),
+  "protocolCount": zod.number().default(getDossierChildrenResponseProtocolCountDefault),
+  "openedAt": zod.string(),
+  "closedAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const GetDossierChildrenResponse = zod.array(GetDossierChildrenResponseItem)
 
 
 /**

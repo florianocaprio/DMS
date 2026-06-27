@@ -13,6 +13,8 @@ export interface DossierUpdate {
   area?: string;
   confidentiality?: string;
   /** @nullable */
+  parentId?: number | null;
+  /** @nullable */
   responsibleId?: number | null;
   /** @nullable */
   classificationId?: number | null;

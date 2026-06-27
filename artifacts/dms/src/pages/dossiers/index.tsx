@@ -22,7 +22,7 @@ export default function DossiersPage() {
   const [page, setPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", area: "", confidentiality: "normal", responsibleId: "", classificationId: "" });
+  const [form, setForm] = useState({ title: "", description: "", area: "", confidentiality: "normal", responsibleId: "", classificationId: "", parentId: "" });
 
   const params = {
     page, limit: 20,
@@ -46,6 +46,7 @@ export default function DossiersPage() {
           confidentiality: form.confidentiality || "normal",
           responsibleId: form.responsibleId ? Number(form.responsibleId) : undefined,
           classificationId: form.classificationId ? Number(form.classificationId) : undefined,
+          parentId: form.parentId ? Number(form.parentId) : undefined,
           year: new Date().getFullYear(),
           code: "TEMP",
           status: "open",
@@ -55,7 +56,7 @@ export default function DossiersPage() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: ["listDossiers"] });
           setShowNew(false);
-          setForm({ title: "", description: "", area: "", confidentiality: "normal", responsibleId: "", classificationId: "" });
+          setForm({ title: "", description: "", area: "", confidentiality: "normal", responsibleId: "", classificationId: "", parentId: "" });
         },
       }
     );
@@ -101,6 +102,7 @@ export default function DossiersPage() {
               <tr>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Codice</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Titolo</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Padre</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Area</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Stato</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Responsabile</th>
@@ -113,7 +115,7 @@ export default function DossiersPage() {
               {(items as Array<{
                 id: number; code: string; title: string; area?: string | null;
                 status: string; responsibleName?: string | null; documentCount?: number;
-                protocolCount?: number; year: number;
+                protocolCount?: number; year: number; parentCode?: string | null; parentId?: number | null;
               }>).map((d) => (
                 <tr key={d.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => window.location.href = `/dossiers/${d.id}`}>
                   <td className="px-6 py-3">
@@ -122,6 +124,7 @@ export default function DossiersPage() {
                   <td className="px-4 py-3">
                     <span className="text-slate-800 font-medium line-clamp-1">{d.title}</span>
                   </td>
+                  <td className="px-4 py-3 text-slate-400 text-xs font-mono">{d.parentCode ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-500 text-xs">{d.area ?? "—"}</td>
                   <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                   <td className="px-4 py-3 text-slate-600 text-xs">{d.responsibleName ?? "—"}</td>
@@ -181,6 +184,18 @@ export default function DossiersPage() {
                 <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
                 <SelectContent>
                   {(classifications ?? []).map((c: { id: number; code: string; title: string }) => <SelectItem key={c.id} value={String(c.id)}>{c.code} — {c.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Fascicolo padre (sotto-fascicolo)</Label>
+              <Select value={form.parentId} onValueChange={(v) => setForm((f) => ({ ...f, parentId: v === "none" ? "" : v }))}>
+                <SelectTrigger><SelectValue placeholder="Nessuno (fascicolo principale)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nessuno (fascicolo principale)</SelectItem>
+                  {(items as Array<{ id: number; code: string; title: string }>).map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

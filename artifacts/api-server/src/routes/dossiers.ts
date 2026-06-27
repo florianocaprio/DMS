@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { dossiersTable, usersTable, classificationsTable, documentsTable, protocolsTable } from "@workspace/db";
-import { eq, sql, count } from "drizzle-orm";
+import { dossiersTable, usersTable, classificationsTable, documentsTable, protocolsTable, protocolDossiersTable } from "@workspace/db";
+import { eq, sql, count, inArray } from "drizzle-orm";
 
 const router = Router();
 
 router.get("/dossiers", async (req, res): Promise<void> => {
-  const { status, responsibleId, page = "1", limit = "20" } = req.query;
+  const { status, responsibleId, parentId, topLevel, page = "1", limit = "20" } = req.query;
   const pg = Number(page);
   const lm = Number(limit);
   const offset = (pg - 1) * lm;
@@ -15,19 +15,21 @@ router.get("/dossiers", async (req, res): Promise<void> => {
   let filtered = allRows;
   if (status) filtered = filtered.filter((d) => d.status === status);
   if (responsibleId) filtered = filtered.filter((d) => d.responsibleId === Number(responsibleId));
+  if (parentId) filtered = filtered.filter((d) => d.parentId === Number(parentId));
+  if (topLevel === "true") filtered = filtered.filter((d) => d.parentId == null);
 
   const total = filtered.length;
   const page_items = filtered.slice(offset, offset + lm);
 
   const userMap = await getUserMap();
   const classMap = await getClassMap();
-  const docCounts = await db.select({ dossierId: documentsTable.dossierId, cnt: count() }).from(documentsTable).groupBy(documentsTable.dossierId);
-  const protCounts = await db.select({ dossierId: protocolsTable.dossierId, cnt: count() }).from(protocolsTable).groupBy(protocolsTable.dossierId);
-  const docCountMap = Object.fromEntries(docCounts.filter((x) => x.dossierId != null).map((x) => [x.dossierId as number, Number(x.cnt)]));
-  const protCountMap = Object.fromEntries(protCounts.filter((x) => x.dossierId != null).map((x) => [x.dossierId as number, Number(x.cnt)]));
+  const docCountMap = await getDocCountMap();
+  const protCountMap = await getProtCountMap();
+  const parentMap = Object.fromEntries(allRows.map((d) => [d.id, d]));
+  const childCountMap = await getChildCountMap();
 
   res.json({
-    items: page_items.map((d) => fmtDossier(d, userMap, classMap, docCountMap, protCountMap)),
+    items: page_items.map((d) => fmtDossier(d, userMap, classMap, docCountMap, protCountMap, parentMap, childCountMap)),
     total,
     page: pg,
     limit: lm,
@@ -40,29 +42,35 @@ router.get("/dossiers/:id", async (req, res): Promise<void> => {
   if (!d) { res.status(404).json({ error: "Not found" }); return; }
   const userMap = await getUserMap();
   const classMap = await getClassMap();
-  const docCounts = await db.select({ dossierId: documentsTable.dossierId, cnt: count() }).from(documentsTable).groupBy(documentsTable.dossierId);
-  const protCounts = await db.select({ dossierId: protocolsTable.dossierId, cnt: count() }).from(protocolsTable).groupBy(protocolsTable.dossierId);
-  const docCountMap = Object.fromEntries(docCounts.filter((x) => x.dossierId != null).map((x) => [x.dossierId as number, Number(x.cnt)]));
-  const protCountMap = Object.fromEntries(protCounts.filter((x) => x.dossierId != null).map((x) => [x.dossierId as number, Number(x.cnt)]));
-  res.json(fmtDossier(d, userMap, classMap, docCountMap, protCountMap));
+  const docCountMap = await getDocCountMap();
+  const protCountMap = await getProtCountMap();
+  const childCountMap = await getChildCountMap();
+  const parentMap = await getDossierMap();
+  res.json(fmtDossier(d, userMap, classMap, docCountMap, protCountMap, parentMap, childCountMap));
 });
 
 router.post("/dossiers", async (req, res): Promise<void> => {
-  const { title, description, area, confidentiality, responsibleId, classificationId } = req.body;
+  const { title, description, area, confidentiality, responsibleId, classificationId, parentId } = req.body;
   const year = new Date().getFullYear();
   const existing = await db.select({ id: dossiersTable.id }).from(dossiersTable).where(sql`extract(year from ${dossiersTable.createdAt}) = ${year}`);
   const code = `FASC-${year}-${String(existing.length + 1).padStart(4, "0")}`;
+  let validParentId: number | null = null;
+  if (parentId) {
+    const [parent] = await db.select({ id: dossiersTable.id }).from(dossiersTable).where(eq(dossiersTable.id, Number(parentId))).limit(1);
+    if (parent) validParentId = parent.id;
+  }
   const [d] = await db.insert(dossiersTable).values({
     title, description, area, confidentiality: confidentiality || "normal",
     responsibleId: responsibleId || null, classificationId: classificationId || null,
+    parentId: validParentId,
     year, code,
   }).returning();
-  res.status(201).json(fmtDossier(d, {}, {}, {}, {}));
+  res.status(201).json(fmtDossier(d, {}, {}, {}, {}, {}, {}));
 });
 
 router.patch("/dossiers/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const { title, description, status, area, confidentiality, responsibleId, classificationId, closedAt } = req.body;
+  const { title, description, status, area, confidentiality, responsibleId, classificationId, closedAt, parentId } = req.body;
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
@@ -72,9 +80,28 @@ router.patch("/dossiers/:id", async (req, res): Promise<void> => {
   if (responsibleId !== undefined) updates.responsibleId = responsibleId;
   if (classificationId !== undefined) updates.classificationId = classificationId;
   if (closedAt !== undefined) updates.closedAt = closedAt ? new Date(closedAt) : null;
+  if (parentId !== undefined) {
+    const newParent = parentId == null ? null : Number(parentId);
+    if (newParent != null) {
+      if (newParent === id) { res.status(400).json({ error: "Un fascicolo non può essere padre di se stesso" }); return; }
+      if (await wouldCreateCycle(id, newParent)) { res.status(400).json({ error: "Gerarchia non valida: ciclo rilevato" }); return; }
+    }
+    updates.parentId = newParent;
+  }
   const [d] = await db.update(dossiersTable).set(updates).where(eq(dossiersTable.id, id)).returning();
   if (!d) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(fmtDossier(d, {}, {}, {}, {}));
+  res.json(fmtDossier(d, {}, {}, {}, {}, {}, {}));
+});
+
+router.get("/dossiers/:id/children", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const rows = await db.select().from(dossiersTable).where(eq(dossiersTable.parentId, id)).orderBy(dossiersTable.createdAt);
+  const userMap = await getUserMap();
+  const classMap = await getClassMap();
+  const docCountMap = await getDocCountMap();
+  const protCountMap = await getProtCountMap();
+  const childCountMap = await getChildCountMap();
+  res.json(rows.map((d) => fmtDossier(d, userMap, classMap, docCountMap, protCountMap, {}, childCountMap)));
 });
 
 router.get("/dossiers/:id/documents", async (req, res): Promise<void> => {
@@ -86,7 +113,12 @@ router.get("/dossiers/:id/documents", async (req, res): Promise<void> => {
 
 router.get("/dossiers/:id/protocols", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const rows = await db.select().from(protocolsTable).where(eq(protocolsTable.dossierId, id));
+  const memberships = await db.select().from(protocolDossiersTable).where(eq(protocolDossiersTable.dossierId, id));
+  const protocolIds = memberships.map((m) => m.protocolId);
+  const primaryMap = Object.fromEntries(memberships.map((m) => [m.protocolId, m.isPrimary]));
+  const rows = protocolIds.length > 0
+    ? await db.select().from(protocolsTable).where(inArray(protocolsTable.id, protocolIds))
+    : [];
   const userMap = await getUserMap();
   res.json(rows.map((p) => ({
     id: p.id,
@@ -98,11 +130,26 @@ router.get("/dossiers/:id/protocols", async (req, res): Promise<void> => {
     recipients: p.recipients,
     priority: p.priority,
     confidentiality: p.confidentiality,
+    isPrimary: primaryMap[p.id] ?? false,
     registeredAt: p.registeredAt?.toISOString() ?? null,
     registeredById: p.registeredById,
     createdByName: userMap[p.registeredById]?.name ?? "Unknown",
   })));
 });
+
+async function wouldCreateCycle(dossierId: number, newParentId: number): Promise<boolean> {
+  const all = await db.select({ id: dossiersTable.id, parentId: dossiersTable.parentId }).from(dossiersTable);
+  const parentOf = Object.fromEntries(all.map((d) => [d.id, d.parentId]));
+  let cur: number | null | undefined = newParentId;
+  const seen = new Set<number>();
+  while (cur != null) {
+    if (cur === dossierId) return true;
+    if (seen.has(cur)) break;
+    seen.add(cur);
+    cur = parentOf[cur];
+  }
+  return false;
+}
 
 async function getUserMap() {
   const users = await db.select().from(usersTable);
@@ -112,6 +159,22 @@ async function getClassMap() {
   const cls = await db.select().from(classificationsTable);
   return Object.fromEntries(cls.map((c) => [c.id, c]));
 }
+async function getDossierMap() {
+  const rows = await db.select().from(dossiersTable);
+  return Object.fromEntries(rows.map((d) => [d.id, d]));
+}
+async function getDocCountMap() {
+  const docCounts = await db.select({ dossierId: documentsTable.dossierId, cnt: count() }).from(documentsTable).groupBy(documentsTable.dossierId);
+  return Object.fromEntries(docCounts.filter((x) => x.dossierId != null).map((x) => [x.dossierId as number, Number(x.cnt)]));
+}
+async function getProtCountMap() {
+  const protCounts = await db.select({ dossierId: protocolDossiersTable.dossierId, cnt: count() }).from(protocolDossiersTable).groupBy(protocolDossiersTable.dossierId);
+  return Object.fromEntries(protCounts.map((x) => [x.dossierId as number, Number(x.cnt)]));
+}
+async function getChildCountMap() {
+  const childCounts = await db.select({ parentId: dossiersTable.parentId, cnt: count() }).from(dossiersTable).groupBy(dossiersTable.parentId);
+  return Object.fromEntries(childCounts.filter((x) => x.parentId != null).map((x) => [x.parentId as number, Number(x.cnt)]));
+}
 
 function fmtDossier(
   d: typeof dossiersTable.$inferSelect,
@@ -119,6 +182,8 @@ function fmtDossier(
   classMap: Record<number, { code: string }>,
   docCountMap: Record<number, number>,
   protCountMap: Record<number, number>,
+  parentMap: Record<number, { code: string; title: string }>,
+  childCountMap: Record<number, number>,
 ) {
   return {
     id: d.id,
@@ -129,6 +194,10 @@ function fmtDossier(
     year: d.year,
     area: d.area,
     confidentiality: d.confidentiality,
+    parentId: d.parentId,
+    parentCode: d.parentId ? (parentMap[d.parentId]?.code ?? null) : null,
+    parentTitle: d.parentId ? (parentMap[d.parentId]?.title ?? null) : null,
+    childCount: childCountMap[d.id] ?? 0,
     responsibleId: d.responsibleId,
     responsibleName: d.responsibleId ? (userMap[d.responsibleId]?.name ?? null) : null,
     classificationId: d.classificationId,

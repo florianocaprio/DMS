@@ -7,6 +7,7 @@
  */
 
 export * from './activityItem';
+export * from './addProtocolDossierInput';
 export * from './assignmentInput';
 export * from './assignmentInputAssignmentsItem';
 export * from './cancelProtocolInput';
@@ -45,7 +46,9 @@ export * from './listTasksParams';
 export * from './listUsersParams';
 export * from './listWorkflowInstancesParams';
 export * from './myDashboardItems';
+export * from './okResponse';
 export * from './protocol';
+export * from './protocolDossierMembership';
 export * from './protocolInput';
 export * from './protocolList';
 export * from './protocolSummary';

@@ -15,6 +15,10 @@ interface Attachment {
   driveFileId?: string | null;
   driveViewLink?: string | null;
   createdAt: string;
+  uploadedByName?: string | null;
+  removedAt?: string | null;
+  removedById?: number | null;
+  removedByName?: string | null;
 }
 
 interface FileAttachmentsProps {
@@ -182,15 +186,18 @@ export function FileAttachments({
     handleFiles(e.dataTransfer.files);
   };
 
+  const active = attachments.filter((a) => !a.removedAt);
+  const removed = attachments.filter((a) => a.removedAt);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
           <Paperclip className="w-4 h-4" />
           Allegati
-          {attachments.length > 0 && (
+          {active.length > 0 && (
             <span className="ml-1 bg-slate-100 text-slate-600 text-xs px-1.5 py-0.5 rounded-full">
-              {attachments.length}
+              {active.length}
             </span>
           )}
         </div>
@@ -260,9 +267,9 @@ export function FileAttachments({
         </p>
       )}
 
-      {attachments.length > 0 ? (
+      {active.length > 0 ? (
         <ul className="space-y-1">
-          {attachments.map((a) => (
+          {active.map((a) => (
             <li
               key={a.id}
               className="flex items-center gap-2.5 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100 hover:border-slate-200 group"
@@ -273,6 +280,7 @@ export function FileAttachments({
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <p className="text-xs text-slate-400">
                     {formatBytes(a.fileSize)} · {new Date(a.createdAt).toLocaleDateString("it-IT")}
+                    {a.uploadedByName ? ` · ${a.uploadedByName}` : ""}
                   </p>
                   {a.driveFileId && (
                     <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-px rounded-full font-medium leading-none">
@@ -336,6 +344,29 @@ export function FileAttachments({
         </ul>
       ) : (
         <p className="text-xs text-slate-400 text-center py-2">Nessun allegato</p>
+      )}
+
+      {removed.length > 0 && (
+        <div className="pt-2 mt-1 border-t border-slate-100">
+          <p className="text-xs font-medium text-slate-500 mb-1.5">File rimossi ({removed.length})</p>
+          <ul className="space-y-1">
+            {removed.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center gap-2.5 px-3 py-2 bg-slate-50/60 rounded-lg border border-dashed border-slate-200"
+              >
+                <div className="flex-shrink-0 opacity-50">{getFileIcon(a.mimeType)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-500 line-through truncate">{a.originalName}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Rimosso{a.removedByName ? ` da ${a.removedByName}` : ""}
+                    {a.removedAt ? ` il ${new Date(a.removedAt).toLocaleDateString("it-IT")}` : ""}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

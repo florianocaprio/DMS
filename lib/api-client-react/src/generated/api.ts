@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActivityItem,
+  AddProtocolDossierInput,
   AssignmentInput,
   CancelProtocolInput,
   Classification,
@@ -55,7 +56,9 @@ import type {
   ListUsersParams,
   ListWorkflowInstancesParams,
   MyDashboardItems,
+  OkResponse,
   Protocol,
+  ProtocolDossierMembership,
   ProtocolInput,
   ProtocolList,
   ProtocolSummary,
@@ -1751,6 +1754,226 @@ export const useCancelProtocol = <TError = ErrorType<unknown>,
       return useMutation(getCancelProtocolMutationOptions(options));
     }
 
+export const getListProtocolDossiersUrl = (id: number,) => {
+
+
+
+
+  return `/api/protocols/${id}/dossiers`
+}
+
+/**
+ * @summary List the dossiers a protocol is filed in
+ */
+export const listProtocolDossiers = async (id: number, options?: RequestInit): Promise<ProtocolDossierMembership[]> => {
+
+  return customFetch<ProtocolDossierMembership[]>(getListProtocolDossiersUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProtocolDossiersQueryKey = (id: number,) => {
+    return [
+    `/api/protocols/${id}/dossiers`
+    ] as const;
+    }
+
+
+export const getListProtocolDossiersQueryOptions = <TData = Awaited<ReturnType<typeof listProtocolDossiers>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProtocolDossiers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProtocolDossiersQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProtocolDossiers>>> = ({ signal }) => listProtocolDossiers(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProtocolDossiers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProtocolDossiersQueryResult = NonNullable<Awaited<ReturnType<typeof listProtocolDossiers>>>
+export type ListProtocolDossiersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the dossiers a protocol is filed in
+ */
+
+export function useListProtocolDossiers<TData = Awaited<ReturnType<typeof listProtocolDossiers>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProtocolDossiers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProtocolDossiersQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddProtocolDossierUrl = (id: number,) => {
+
+
+
+
+  return `/api/protocols/${id}/dossiers`
+}
+
+/**
+ * @summary File a protocol into an additional dossier
+ */
+export const addProtocolDossier = async (id: number,
+    addProtocolDossierInput: AddProtocolDossierInput, options?: RequestInit): Promise<OkResponse> => {
+
+  return customFetch<OkResponse>(getAddProtocolDossierUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(addProtocolDossierInput)
+  }
+);}
+
+
+
+
+export const getAddProtocolDossierMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addProtocolDossier>>, TError,{id: number;data: BodyType<AddProtocolDossierInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addProtocolDossier>>, TError,{id: number;data: BodyType<AddProtocolDossierInput>}, TContext> => {
+
+const mutationKey = ['addProtocolDossier'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addProtocolDossier>>, {id: number;data: BodyType<AddProtocolDossierInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addProtocolDossier(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddProtocolDossierMutationResult = NonNullable<Awaited<ReturnType<typeof addProtocolDossier>>>
+    export type AddProtocolDossierMutationBody = BodyType<AddProtocolDossierInput>
+    export type AddProtocolDossierMutationError = ErrorType<void>
+
+    /**
+ * @summary File a protocol into an additional dossier
+ */
+export const useAddProtocolDossier = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addProtocolDossier>>, TError,{id: number;data: BodyType<AddProtocolDossierInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addProtocolDossier>>,
+        TError,
+        {id: number;data: BodyType<AddProtocolDossierInput>},
+        TContext
+      > => {
+      return useMutation(getAddProtocolDossierMutationOptions(options));
+    }
+
+export const getRemoveProtocolDossierUrl = (id: number,
+    dossierId: number,) => {
+
+
+
+
+  return `/api/protocols/${id}/dossiers/${dossierId}`
+}
+
+/**
+ * @summary Remove a protocol from a dossier (the protocol itself is preserved)
+ */
+export const removeProtocolDossier = async (id: number,
+    dossierId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRemoveProtocolDossierUrl(id,dossierId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getRemoveProtocolDossierMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeProtocolDossier>>, TError,{id: number;dossierId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeProtocolDossier>>, TError,{id: number;dossierId: number}, TContext> => {
+
+const mutationKey = ['removeProtocolDossier'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeProtocolDossier>>, {id: number;dossierId: number}> = (props) => {
+          const {id,dossierId} = props ?? {};
+
+          return  removeProtocolDossier(id,dossierId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveProtocolDossierMutationResult = NonNullable<Awaited<ReturnType<typeof removeProtocolDossier>>>
+
+    export type RemoveProtocolDossierMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a protocol from a dossier (the protocol itself is preserved)
+ */
+export const useRemoveProtocolDossier = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeProtocolDossier>>, TError,{id: number;dossierId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeProtocolDossier>>,
+        TError,
+        {id: number;dossierId: number},
+        TContext
+      > => {
+      return useMutation(getRemoveProtocolDossierMutationOptions(options));
+    }
+
 export const getGetProtocolSummaryUrl = () => {
 
 
@@ -2272,6 +2495,83 @@ export function useGetDossierProtocols<TData = Awaited<ReturnType<typeof getDoss
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDossierProtocolsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDossierChildrenUrl = (id: number,) => {
+
+
+
+
+  return `/api/dossiers/${id}/children`
+}
+
+/**
+ * @summary List sub-dossiers (sotto-fascicoli) of a dossier
+ */
+export const getDossierChildren = async (id: number, options?: RequestInit): Promise<Dossier[]> => {
+
+  return customFetch<Dossier[]>(getGetDossierChildrenUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDossierChildrenQueryKey = (id: number,) => {
+    return [
+    `/api/dossiers/${id}/children`
+    ] as const;
+    }
+
+
+export const getGetDossierChildrenQueryOptions = <TData = Awaited<ReturnType<typeof getDossierChildren>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDossierChildren>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDossierChildrenQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDossierChildren>>> = ({ signal }) => getDossierChildren(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDossierChildren>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDossierChildrenQueryResult = NonNullable<Awaited<ReturnType<typeof getDossierChildren>>>
+export type GetDossierChildrenQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List sub-dossiers (sotto-fascicoli) of a dossier
+ */
+
+export function useGetDossierChildren<TData = Awaited<ReturnType<typeof getDossierChildren>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDossierChildren>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDossierChildrenQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

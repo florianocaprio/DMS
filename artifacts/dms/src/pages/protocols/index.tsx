@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Plus, Filter, Mail, Send, Building2, Lock, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Filter, Mail, Send, Building2, Lock, X, FolderOpen } from "lucide-react";
 
 const TYPES = [
   { value: "incoming", label: "Entrata" },
@@ -40,6 +40,19 @@ interface Attachment {
   mimeType: string;
   fileSize: number;
   createdAt: string;
+  uploadedByName?: string | null;
+  removedAt?: string | null;
+  removedByName?: string | null;
+}
+
+interface DossierMembership {
+  id: number;
+  dossierId: number;
+  dossierCode?: string | null;
+  dossierTitle?: string | null;
+  isPrimary: boolean;
+  addedByName?: string | null;
+  addedAt?: string | null;
 }
 
 interface ProtocolItem {
@@ -67,11 +80,15 @@ export default function ProtocolsPage() {
   const [selectedProtocol, setSelectedProtocol] = useState<ProtocolItem | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loadedProtoId, setLoadedProtoId] = useState<number | null>(null);
+  const [memberships, setMemberships] = useState<DossierMembership[]>([]);
+  const [addDossierSel, setAddDossierSel] = useState<string>("");
+  const [membBusy, setMembBusy] = useState(false);
   const [form, setForm] = useState({
     type: "incoming", subject: "", description: "", sender: "",
     recipients: "", priority: "normal", confidentiality: "normal",
     dossierId: "", notes: "",
   });
+  const [extraDossierIds, setExtraDossierIds] = useState<number[]>([]);
 
   const params = {
     page, limit: 20,
@@ -94,11 +111,62 @@ export default function ProtocolsPage() {
   async function handleSelectProtocol(p: ProtocolItem) {
     setSelectedProtocol(p);
     if (loadedProtoId !== p.id) {
-      const res = await fetch(`/api/attachments?protocolId=${p.id}`);
+      const res = await fetch(`/api/attachments?protocolId=${p.id}&includeRemoved=true`);
       if (res.ok) {
         setAttachments(await res.json());
         setLoadedProtoId(p.id);
       }
+      await loadMemberships(p.id);
+    }
+  }
+
+  async function loadMemberships(protocolId: number) {
+    const res = await fetch(`/api/protocols/${protocolId}/dossiers`);
+    if (res.ok) setMemberships(await res.json());
+  }
+
+  async function handleAddMembership() {
+    if (!selectedProtocol || !addDossierSel) return;
+    setMembBusy(true);
+    try {
+      await fetch(`/api/protocols/${selectedProtocol.id}/dossiers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dossierId: Number(addDossierSel) }),
+      });
+      setAddDossierSel("");
+      await loadMemberships(selectedProtocol.id);
+      qc.invalidateQueries({ queryKey: ["listProtocols"] });
+    } finally {
+      setMembBusy(false);
+    }
+  }
+
+  async function handleRemoveMembership(dossierId: number) {
+    if (!selectedProtocol) return;
+    setMembBusy(true);
+    try {
+      await fetch(`/api/protocols/${selectedProtocol.id}/dossiers/${dossierId}`, { method: "DELETE" });
+      await loadMemberships(selectedProtocol.id);
+      qc.invalidateQueries({ queryKey: ["listProtocols"] });
+    } finally {
+      setMembBusy(false);
+    }
+  }
+
+  async function handleSetPrimary(dossierId: number) {
+    if (!selectedProtocol) return;
+    setMembBusy(true);
+    try {
+      await fetch(`/api/protocols/${selectedProtocol.id}/dossiers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dossierId, isPrimary: true }),
+      });
+      await loadMemberships(selectedProtocol.id);
+      qc.invalidateQueries({ queryKey: ["listProtocols"] });
+    } finally {
+      setMembBusy(false);
     }
   }
 
@@ -110,6 +178,7 @@ export default function ProtocolsPage() {
           recipients: form.recipients ? form.recipients.split(",").map((r) => r.trim()) : [],
           ccRecipients: [],
           dossierId: form.dossierId && form.dossierId !== "none" ? Number(form.dossierId) : undefined,
+          dossierIds: extraDossierIds.length > 0 ? extraDossierIds : undefined,
         } as Parameters<typeof createProtocol.mutate>[0]["data"],
       },
       {
@@ -117,6 +186,7 @@ export default function ProtocolsPage() {
           qc.invalidateQueries({ queryKey: ["listProtocols"] });
           setShowNew(false);
           setForm({ type: "incoming", subject: "", description: "", sender: "", recipients: "", priority: "normal", confidentiality: "normal", dossierId: "", notes: "" });
+          setExtraDossierIds([]);
         },
       }
     );
@@ -277,12 +347,6 @@ export default function ProtocolsPage() {
                   <p className="text-slate-700 mt-0.5">{selectedProtocol.recipients.join(", ")}</p>
                 </div>
               )}
-              {selectedProtocol.dossierTitle && (
-                <div>
-                  <p className="text-slate-400 uppercase tracking-wide font-medium">Fascicolo</p>
-                  <p className="text-slate-700 mt-0.5">{selectedProtocol.dossierTitle}</p>
-                </div>
-              )}
               {selectedProtocol.assignedToName && (
                 <div>
                   <p className="text-slate-400 uppercase tracking-wide font-medium">Assegnato a</p>
@@ -298,11 +362,67 @@ export default function ProtocolsPage() {
             </div>
 
             <div className="border-t border-slate-100 pt-4">
+              <p className="text-slate-400 uppercase tracking-wide font-medium text-xs mb-1.5">Fascicoli</p>
+              {memberships.length === 0 ? (
+                <p className="text-xs text-slate-400">Non archiviato in alcun fascicolo</p>
+              ) : (
+                <ul className="space-y-1">
+                  {memberships.map((m) => (
+                    <li key={m.id} className="flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-100 rounded-md px-2 py-1.5">
+                      <FolderOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-slate-700 truncate">
+                          <span className="font-mono text-slate-500">{m.dossierCode}</span> {m.dossierTitle}
+                        </p>
+                        {m.addedByName && (
+                          <p className="text-[10px] text-slate-400">
+                            {m.addedByName}{m.addedAt ? ` · ${new Date(m.addedAt).toLocaleDateString("it-IT")}` : ""}
+                          </p>
+                        )}
+                      </div>
+                      {m.isPrimary ? (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-px rounded-full font-medium leading-none flex-shrink-0">Principale</span>
+                      ) : (
+                        <button
+                          onClick={() => handleSetPrimary(m.dossierId)}
+                          disabled={membBusy}
+                          className="text-[10px] text-slate-500 hover:text-blue-700 flex-shrink-0"
+                          title="Imposta come principale"
+                        >Rendi princ.</button>
+                      )}
+                      <button
+                        onClick={() => handleRemoveMembership(m.dossierId)}
+                        disabled={membBusy}
+                        className="text-slate-400 hover:text-red-600 flex-shrink-0"
+                        title="Rimuovi dal fascicolo"
+                      ><X className="w-3 h-3" /></button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex items-center gap-1.5 mt-2">
+                <Select value={addDossierSel} onValueChange={setAddDossierSel}>
+                  <SelectTrigger className="h-7 text-xs flex-1"><SelectValue placeholder="Aggiungi a fascicolo" /></SelectTrigger>
+                  <SelectContent>
+                    {(dossiers?.items ?? [])
+                      .filter((d: { id: number }) => !memberships.some((m) => m.dossierId === d.id))
+                      .map((d: { id: number; code: string; title: string }) => (
+                        <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={!addDossierSel || membBusy} onClick={handleAddMembership}>
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4">
               <FileAttachments
                 protocolId={selectedProtocol.id}
                 attachments={attachments}
                 onAttachmentAdded={(a) => setAttachments((prev) => [...prev, a])}
-                onAttachmentDeleted={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
+                onAttachmentDeleted={(id) => setAttachments((prev) => prev.map((a) => a.id === id ? { ...a, removedAt: new Date().toISOString(), removedByName: "Tu" } : a))}
               />
             </div>
           </div>
@@ -346,8 +466,8 @@ export default function ProtocolsPage() {
               </Select>
             </div>
             <div className="col-span-2">
-              <Label className="text-xs text-slate-600 mb-1 block">Fascicolo</Label>
-              <Select value={form.dossierId} onValueChange={(v) => setForm((f) => ({ ...f, dossierId: v }))}>
+              <Label className="text-xs text-slate-600 mb-1 block">Fascicolo principale</Label>
+              <Select value={form.dossierId} onValueChange={(v) => { setForm((f) => ({ ...f, dossierId: v })); setExtraDossierIds((prev) => prev.filter((id) => String(id) !== v)); }}>
                 <SelectTrigger><SelectValue placeholder="Nessun fascicolo" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nessuno</SelectItem>
@@ -356,6 +476,27 @@ export default function ProtocolsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Altri fascicoli (archiviazione multipla)</Label>
+              <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-md p-2 space-y-1">
+                {(dossiers?.items ?? []).filter((d: { id: number }) => String(d.id) !== form.dossierId).length === 0 ? (
+                  <p className="text-xs text-slate-400 px-1 py-0.5">Nessun altro fascicolo disponibile</p>
+                ) : (
+                  (dossiers?.items ?? [])
+                    .filter((d: { id: number }) => String(d.id) !== form.dossierId)
+                    .map((d: { id: number; code: string; title: string }) => (
+                      <label key={d.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
+                        <input
+                          type="checkbox"
+                          checked={extraDossierIds.includes(d.id)}
+                          onChange={(e) => setExtraDossierIds((prev) => e.target.checked ? [...prev, d.id] : prev.filter((id) => id !== d.id))}
+                        />
+                        <span className="font-mono text-slate-500">{d.code}</span> — {d.title}
+                      </label>
+                    ))
+                )}
+              </div>
             </div>
             <div className="col-span-2">
               <Label className="text-xs text-slate-600 mb-1 block">Note</Label>

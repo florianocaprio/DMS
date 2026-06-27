@@ -18,6 +18,13 @@ export interface Dossier {
   area?: string | null;
   confidentiality?: string;
   /** @nullable */
+  parentId?: number | null;
+  /** @nullable */
+  parentCode?: string | null;
+  /** @nullable */
+  parentTitle?: string | null;
+  childCount?: number;
+  /** @nullable */
   responsibleId?: number | null;
   /** @nullable */
   responsibleName?: string | null;

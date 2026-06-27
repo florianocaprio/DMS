@@ -326,6 +326,8 @@ export interface ProtocolInput {
   priority?: string;
   /** @nullable */
   dossierId?: number | null;
+  /** Additional dossiers to file this protocol into (besides the primary dossierId) */
+  dossierIds?: number[];
   /** @nullable */
   classificationId?: number | null;
   /** @nullable */
@@ -385,6 +387,13 @@ export interface Dossier {
   area?: string | null;
   confidentiality?: string;
   /** @nullable */
+  parentId?: number | null;
+  /** @nullable */
+  parentCode?: string | null;
+  /** @nullable */
+  parentTitle?: string | null;
+  childCount?: number;
+  /** @nullable */
   responsibleId?: number | null;
   /** @nullable */
   responsibleName?: string | null;
@@ -415,6 +424,8 @@ export interface DossierInput {
   area?: string;
   confidentiality?: string;
   /** @nullable */
+  parentId?: number | null;
+  /** @nullable */
   responsibleId?: number | null;
   /** @nullable */
   classificationId?: number | null;
@@ -426,6 +437,8 @@ export interface DossierUpdate {
   status?: string;
   area?: string;
   confidentiality?: string;
+  /** @nullable */
+  parentId?: number | null;
   /** @nullable */
   responsibleId?: number | null;
   /** @nullable */
@@ -734,6 +747,14 @@ export interface FileAttachment {
   /** @nullable */
   dossierId?: number | null;
   uploadedById?: number;
+  /** @nullable */
+  uploadedByName?: string | null;
+  /** @nullable */
+  removedAt?: string | null;
+  /** @nullable */
+  removedById?: number | null;
+  /** @nullable */
+  removedByName?: string | null;
   createdAt: string;
 }
 
@@ -747,10 +768,41 @@ export interface CreateAttachmentInput {
   dossierId?: number;
 }
 
+export interface ProtocolDossierMembership {
+  id: number;
+  protocolId: number;
+  dossierId: number;
+  /** @nullable */
+  dossierCode?: string | null;
+  /** @nullable */
+  dossierTitle?: string | null;
+  isPrimary: boolean;
+  /** @nullable */
+  addedById?: number | null;
+  /** @nullable */
+  addedByName?: string | null;
+  /** @nullable */
+  addedAt?: string | null;
+}
+
+export interface AddProtocolDossierInput {
+  dossierId: number;
+  isPrimary?: boolean;
+}
+
+export interface OkResponse {
+  ok: boolean;
+}
+
 export type ListAttachmentsParams = {
 documentId?: number;
 protocolId?: number;
 dossierId?: number;
+/**
+ * Include soft-deleted (removed) attachments in the result
+ * @nullable
+ */
+includeRemoved?: boolean | null;
 };
 
 export type ListDocumentsParams = {
