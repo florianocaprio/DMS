@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { documentsTable, usersTable, dossiersTable, classificationsTable, protocolsTable } from "@workspace/db";
+import { documentsTable, usersTable, dossiersTable, classificationsTable, protocolsTable, documentDossiersTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
 import { getDocumentDossierSets } from "../lib/memberships";
+import { getDefaultDossierId, ensureDefaultDossier } from "../lib/ensureDefaults";
 
 const router = Router();
 
@@ -64,17 +65,43 @@ router.get("/documents", async (req, res): Promise<void> => {
 
 router.post("/documents", async (req, res): Promise<void> => {
   const { title, type, subject, description, confidentiality, priority, dossierId, classificationId, responsibleId, tags, driveUrl, fileName } = req.body;
-  const [doc] = await db.insert(documentsTable).values({
-    title, type, subject, description,
-    confidentiality: confidentiality || "normal",
-    priority: priority || "normal",
-    dossierId: dossierId || null,
-    classificationId: classificationId || null,
-    responsibleId: responsibleId || null,
-    createdById: req.currentUserId!,
-    tags: tags || [],
-    driveUrl, fileName,
-  }).returning();
+
+  // Ensure the "Archivio Documenti" default exists before filing (normally
+  // created at boot, but enforce here so the rule always holds).
+  let defaultDossierId = await getDefaultDossierId();
+  if (!defaultDossierId) {
+    await ensureDefaultDossier();
+    defaultDossierId = await getDefaultDossierId();
+  }
+
+  const selected = dossierId ? Number(dossierId) : null;
+  // No fascicolo selected → land in "Archivio Documenti" (default) as home.
+  const homeDossierId = selected ?? defaultDossierId;
+  const needsArchiveCopy = !!(defaultDossierId && homeDossierId && homeDossierId !== defaultDossierId);
+
+  // Create the document and (when a fascicolo was selected) the automatic
+  // "Archivio Documenti" junction copy atomically so the doc is never left
+  // out of Archivio on a partial failure.
+  const doc = await db.transaction(async (tx) => {
+    const [created] = await tx.insert(documentsTable).values({
+      title, type, subject, description,
+      confidentiality: confidentiality || "normal",
+      priority: priority || "normal",
+      dossierId: homeDossierId,
+      classificationId: classificationId || null,
+      responsibleId: responsibleId || null,
+      createdById: req.currentUserId!,
+      tags: tags || [],
+      driveUrl, fileName,
+    }).returning();
+    if (needsArchiveCopy) {
+      await tx.insert(documentDossiersTable)
+        .values({ documentId: created.id, dossierId: defaultDossierId!, isPrimary: false, addedById: req.currentUserId! })
+        .onConflictDoNothing({ target: [documentDossiersTable.documentId, documentDossiersTable.dossierId] });
+    }
+    return created;
+  });
+
   if (doc.dossierId) await triggerDossierWorkflows(doc.dossierId, "document", doc.id);
   const userMap = await getUserMap();
   res.status(201).json(fmtDocument(doc, userMap, {}, {}, {}));

@@ -6,6 +6,20 @@ import { logger } from "./logger";
 const DEFAULT_DOSSIER_TITLE = "Archivio Documenti";
 
 /**
+ * Returns the id of the default dossier ("Archivio Documenti"), or null if it
+ * does not exist yet. Picks the lowest id when (unexpectedly) several are flagged.
+ */
+export async function getDefaultDossierId(): Promise<number | null> {
+  const [row] = await db
+    .select({ id: dossiersTable.id })
+    .from(dossiersTable)
+    .where(eq(dossiersTable.isDefault, true))
+    .orderBy(asc(dossiersTable.id))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/**
  * Ensures exactly one default dossier ("Archivio Documenti") exists. New
  * documents created without an explicit fascicolo land here. Idempotent: safe
  * to call on every boot. If a dossier with the canonical title already exists
