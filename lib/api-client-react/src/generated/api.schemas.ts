@@ -769,7 +769,8 @@ export interface CreateAttachmentInput {
 }
 
 export interface ProtocolDossierMembership {
-  id: number;
+  /** @nullable */
+  id?: number | null;
   protocolId: number;
   dossierId: number;
   /** @nullable */

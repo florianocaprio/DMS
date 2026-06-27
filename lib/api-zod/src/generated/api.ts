@@ -914,7 +914,7 @@ export const ListProtocolDossiersParams = zod.object({
 })
 
 export const ListProtocolDossiersResponseItem = zod.object({
-  "id": zod.number(),
+  "id": zod.number().nullish(),
   "protocolId": zod.number(),
   "dossierId": zod.number(),
   "dossierCode": zod.string().nullish(),

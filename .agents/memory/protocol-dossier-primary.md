@@ -20,3 +20,11 @@ flagged it as a correctness break of the "one primary + others" requirement.
 inside `db.transaction` and ends by recomputing the primary, then syncing
 `protocols.dossierId` (or null). PATCH with `dossierId: null` must also demote
 all junction primaries, not just clear the column.
+
+**Backward compatibility:** dossier *reads* must not assume the junction is
+populated. A protocol may exist with only `protocols.dossierId` set (legacy
+rows, fresh seeds before backfill). All read paths go through a single
+`getEffectiveMemberships()` helper that unions the junction with a synthetic
+primary derived from `protocols.dossierId` for protocols that have NO junction
+rows — never double-counting protocols that have both. Don't reintroduce
+junction-only reads for counts/filters/lists.

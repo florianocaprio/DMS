@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { protocolsTable, usersTable, dossiersTable, classificationsTable, protocolDossiersTable, activityLogTable } from "@workspace/db";
 import { eq, sql, desc, and } from "drizzle-orm";
 import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
+import { getEffectiveMemberships } from "../lib/memberships";
 
 const router = Router();
 
@@ -35,8 +36,7 @@ router.get("/protocols", async (req, res): Promise<void> => {
   if (status) rows = rows.filter((p) => p.status === status);
   if (year) rows = rows.filter((p) => p.year === Number(year));
   if (dossierId) {
-    const memberships = await db.select({ protocolId: protocolDossiersTable.protocolId })
-      .from(protocolDossiersTable).where(eq(protocolDossiersTable.dossierId, Number(dossierId)));
+    const memberships = (await getEffectiveMemberships()).filter((m) => m.dossierId === Number(dossierId));
     const ids = new Set(memberships.map((m) => m.protocolId));
     rows = rows.filter((p) => ids.has(p.id));
   }
@@ -184,9 +184,9 @@ router.post("/protocols/:id/cancel", async (req, res): Promise<void> => {
 
 router.get("/protocols/:id/dossiers", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const memberships = await db.select().from(protocolDossiersTable)
-    .where(eq(protocolDossiersTable.protocolId, id))
-    .orderBy(desc(protocolDossiersTable.isPrimary), protocolDossiersTable.addedAt);
+  const memberships = (await getEffectiveMemberships())
+    .filter((m) => m.protocolId === id)
+    .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || (a.addedAt?.getTime() ?? 0) - (b.addedAt?.getTime() ?? 0));
   const dossierMap = await getDossierMap();
   const userMap = await getUserMap();
   res.json(memberships.map((m) => ({
@@ -197,8 +197,8 @@ router.get("/protocols/:id/dossiers", async (req, res): Promise<void> => {
     dossierTitle: dossierMap[m.dossierId]?.title ?? null,
     isPrimary: m.isPrimary,
     addedById: m.addedById,
-    addedByName: userMap[m.addedById]?.name ?? "Unknown",
-    addedAt: m.addedAt.toISOString(),
+    addedByName: m.addedById != null ? userMap[m.addedById]?.name ?? "Unknown" : null,
+    addedAt: m.addedAt?.toISOString() ?? null,
   })));
 });
 

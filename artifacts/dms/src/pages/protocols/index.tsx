@@ -46,7 +46,7 @@ interface Attachment {
 }
 
 interface DossierMembership {
-  id: number;
+  id?: number | null;
   dossierId: number;
   dossierCode?: string | null;
   dossierTitle?: string | null;
@@ -368,7 +368,7 @@ export default function ProtocolsPage() {
               ) : (
                 <ul className="space-y-1">
                   {memberships.map((m) => (
-                    <li key={m.id} className="flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-100 rounded-md px-2 py-1.5">
+                    <li key={m.dossierId} className="flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-100 rounded-md px-2 py-1.5">
                       <FolderOpen className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-slate-700 truncate">

@@ -154,8 +154,9 @@ export default function DossierDetail({ id }: Props) {
 
   // Edit state
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ title: "", description: "", area: "", status: "", confidentiality: "" });
+  const [editForm, setEditForm] = useState({ title: "", description: "", area: "", status: "", confidentiality: "", parentId: "" });
   const [saving, setSaving] = useState(false);
+  const [allDossiers, setAllDossiers] = useState<{ id: number; code: string; title: string }[]>([]);
 
   // Initial load
   useEffect(() => {
@@ -163,7 +164,7 @@ export default function DossierDetail({ id }: Props) {
       try {
         const d = await apiFetch<Dossier>(`/dossiers/${dossierId}`);
         setDossier(d);
-        setEditForm({ title: d.title, description: d.description ?? "", area: d.area ?? "", status: d.status, confidentiality: d.confidentiality });
+        setEditForm({ title: d.title, description: d.description ?? "", area: d.area ?? "", status: d.status, confidentiality: d.confidentiality, parentId: d.parentId != null ? String(d.parentId) : "" });
         const docs = await apiFetch<Document[]>(`/dossiers/${dossierId}/documents`);
         setDocuments(docs);
       } catch (e) {
@@ -219,12 +220,25 @@ export default function DossierDetail({ id }: Props) {
     }
   };
 
+  const startEditing = async () => {
+    setEditing(true);
+    if (allDossiers.length === 0) {
+      try {
+        const list = await apiFetch<{ items: { id: number; code: string; title: string }[] }>(`/dossiers?limit=500`);
+        setAllDossiers(list.items ?? []);
+      } catch {
+        // selector falls back to "Nessuno" only
+      }
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      const { parentId, ...rest } = editForm;
       const updated = await apiFetch<Dossier>(`/dossiers/${dossierId}`, {
         method: "PATCH",
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({ ...rest, parentId: parentId === "" ? null : Number(parentId) }),
       });
       setDossier(updated);
       setEditing(false);
@@ -326,7 +340,7 @@ export default function DossierDetail({ id }: Props) {
                   </Button>
                 </>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                <Button size="sm" variant="outline" onClick={startEditing}>
                   <Edit2 className="w-3.5 h-3.5 mr-1.5" />Modifica
                 </Button>
               )}
@@ -387,6 +401,32 @@ export default function DossierDetail({ id }: Props) {
                   </select>
                 ) : (
                   <div className="text-xs font-medium">{CONFIDENTIALITY_LABELS[dossier.confidentiality] ?? dossier.confidentiality}</div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <FolderTree className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">Fascicolo padre</div>
+                {editing ? (
+                  <select
+                    className="border border-border rounded px-1.5 py-0.5 text-xs bg-background w-full"
+                    value={editForm.parentId}
+                    onChange={e => setEditForm(f => ({ ...f, parentId: e.target.value }))}
+                  >
+                    <option value="">Nessuno</option>
+                    {allDossiers
+                      .filter(d => d.id !== dossier.id)
+                      .map(d => (
+                        <option key={d.id} value={String(d.id)}>{d.code} — {d.title}</option>
+                      ))}
+                  </select>
+                ) : dossier.parentId ? (
+                  <Link href={`/dossiers/${dossier.parentId}`} className="text-xs font-medium hover:underline truncate block">
+                    {dossier.parentCode} {dossier.parentTitle}
+                  </Link>
+                ) : (
+                  <div className="text-xs font-medium">—</div>
                 )}
               </div>
             </div>

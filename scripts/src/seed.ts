@@ -4,6 +4,7 @@ import {
   classificationsTable,
   dossiersTable,
   protocolsTable,
+  protocolDossiersTable,
   documentsTable,
   tasksTable,
   activityLogTable,
@@ -45,6 +46,15 @@ async function seed() {
     { number: "AIM-2026-E-000003", year: 2026, type: "incoming", status: "registered", subject: "Istanza accesso agli atti", sender: "Mario Bianchi", recipients: ["Ufficio Legale"], ccRecipients: [], confidentiality: "normal", priority: "urgent", assignedToId: 5, registeredById: 1 },
     { number: "AIM-2026-I-000002", year: 2026, type: "internal", status: "registered", subject: "Nota servizio chiusura estiva", sender: "Segreteria", recipients: ["Tutto il personale"], ccRecipients: [], confidentiality: "normal", priority: "low", registeredById: 2 },
   ]).onConflictDoNothing();
+
+  console.log("Seeding protocol-dossier memberships...");
+  const seededProtocols = await db.select().from(protocolsTable);
+  const membershipRows = seededProtocols
+    .filter((p) => p.dossierId != null)
+    .map((p) => ({ protocolId: p.id, dossierId: p.dossierId as number, isPrimary: true, addedById: p.registeredById }));
+  if (membershipRows.length > 0) {
+    await db.insert(protocolDossiersTable).values(membershipRows).onConflictDoNothing();
+  }
 
   console.log("Seeding documents...");
   await db.insert(documentsTable).values([

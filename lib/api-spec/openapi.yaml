@@ -2867,10 +2867,10 @@ components:
 
     ProtocolDossierMembership:
       type: object
-      required: [id, protocolId, dossierId, isPrimary]
+      required: [protocolId, dossierId, isPrimary]
       properties:
         id:
-          type: integer
+          type: ["integer", "null"]
         protocolId:
           type: integer
         dossierId:

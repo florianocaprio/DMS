@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { dossiersTable, usersTable, classificationsTable, documentsTable, protocolsTable, protocolDossiersTable } from "@workspace/db";
+import { dossiersTable, usersTable, classificationsTable, documentsTable, protocolsTable } from "@workspace/db";
 import { eq, sql, count, inArray } from "drizzle-orm";
+import { getEffectiveMemberships } from "../lib/memberships";
 
 const router = Router();
 
@@ -113,7 +114,7 @@ router.get("/dossiers/:id/documents", async (req, res): Promise<void> => {
 
 router.get("/dossiers/:id/protocols", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const memberships = await db.select().from(protocolDossiersTable).where(eq(protocolDossiersTable.dossierId, id));
+  const memberships = (await getEffectiveMemberships()).filter((m) => m.dossierId === id);
   const protocolIds = memberships.map((m) => m.protocolId);
   const primaryMap = Object.fromEntries(memberships.map((m) => [m.protocolId, m.isPrimary]));
   const rows = protocolIds.length > 0
@@ -168,8 +169,10 @@ async function getDocCountMap() {
   return Object.fromEntries(docCounts.filter((x) => x.dossierId != null).map((x) => [x.dossierId as number, Number(x.cnt)]));
 }
 async function getProtCountMap() {
-  const protCounts = await db.select({ dossierId: protocolDossiersTable.dossierId, cnt: count() }).from(protocolDossiersTable).groupBy(protocolDossiersTable.dossierId);
-  return Object.fromEntries(protCounts.map((x) => [x.dossierId as number, Number(x.cnt)]));
+  const memberships = await getEffectiveMemberships();
+  const map: Record<number, number> = {};
+  for (const m of memberships) map[m.dossierId] = (map[m.dossierId] ?? 0) + 1;
+  return map;
 }
 async function getChildCountMap() {
   const childCounts = await db.select({ parentId: dossiersTable.parentId, cnt: count() }).from(dossiersTable).groupBy(dossiersTable.parentId);
