@@ -10,7 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useListDossiers, getListDossiersQueryKey } from "@workspace/api-client-react";
+import {
+  useListDossiers,
+  getListDossiersQueryKey,
+  useListUsers,
+  getListUsersQueryKey,
+} from "@workspace/api-client-react";
 import {
   ProtocolTypeBadge,
   StatusBadge,
@@ -165,6 +170,7 @@ export default function ProtocolDetail({ id }: Props) {
     recipients: "",
     priority: "normal",
     confidentiality: "normal",
+    assignedToId: "",
     notes: "",
   });
 
@@ -174,6 +180,8 @@ export default function ProtocolDetail({ id }: Props) {
   const [cancelling, setCancelling] = useState(false);
 
   const { data: dossiers } = useListDossiers({}, { query: { queryKey: getListDossiersQueryKey() } });
+  const { data: users } = useListUsers({}, { query: { queryKey: getListUsersQueryKey({}) } });
+  const userList = (users ?? []) as Array<{ id: number; name: string }>;
 
   function applyProtocol(p: Protocol) {
     setProtocol(p);
@@ -184,6 +192,7 @@ export default function ProtocolDetail({ id }: Props) {
       recipients: (p.recipients ?? []).join(", "),
       priority: p.priority,
       confidentiality: p.confidentiality,
+      assignedToId: p.assignedToId != null ? String(p.assignedToId) : "",
       notes: p.notes ?? "",
     });
   }
@@ -281,6 +290,7 @@ export default function ProtocolDetail({ id }: Props) {
             : [],
           priority: editForm.priority,
           confidentiality: editForm.confidentiality,
+          assignedToId: editForm.assignedToId ? Number(editForm.assignedToId) : null,
           notes: editForm.notes,
         }),
       });
@@ -527,9 +537,24 @@ export default function ProtocolDetail({ id }: Props) {
             {/* Assigned to */}
             <div className="flex items-start gap-2">
               <User className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">Assegnato a</div>
-                <div className="text-xs font-medium">{protocol.assignedToName ?? "—"}</div>
+                {editing ? (
+                  <select
+                    className="border border-border rounded px-1.5 py-0.5 text-xs bg-background w-full"
+                    value={editForm.assignedToId}
+                    onChange={(e) => setEditForm((f) => ({ ...f, assignedToId: e.target.value }))}
+                  >
+                    <option value="">Nessuno</option>
+                    {userList.map((u) => (
+                      <option key={u.id} value={String(u.id)}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-xs font-medium">{protocol.assignedToName ?? "—"}</div>
+                )}
               </div>
             </div>
 
