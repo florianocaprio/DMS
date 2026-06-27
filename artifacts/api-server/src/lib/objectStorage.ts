@@ -29,6 +29,38 @@ export const objectStorageClient = new Storage({
   projectId: "",
 });
 
+/**
+ * Sovrascrive il contenuto di un objectPath esistente con un nuovo buffer.
+ * Usato per aggiornare file in-place (es. timbro digitale).
+ */
+export async function uploadBufferToObjectPath(
+  objectPath: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<void> {
+  if (!objectPath.startsWith("/objects/")) {
+    throw new Error(`uploadBufferToObjectPath: objectPath deve iniziare con /objects/, ricevuto: ${objectPath}`);
+  }
+  const parts = objectPath.slice(1).split("/"); // ["objects", "uploads", "uuid"]
+  const entityId = parts.slice(1).join("/");    // "uploads/uuid"
+
+  const privateDir = process.env.PRIVATE_OBJECT_DIR || "";
+  if (!privateDir) throw new Error("PRIVATE_OBJECT_DIR non impostata");
+
+  const entityDir = privateDir.endsWith("/") ? privateDir : `${privateDir}/`;
+  const fullPath = `${entityDir}${entityId}`;   // "/bucket/private/uploads/uuid"
+
+  const normalized = fullPath.startsWith("/") ? fullPath.slice(1) : fullPath;
+  const slashIdx = normalized.indexOf("/");
+  if (slashIdx === -1) throw new Error(`Percorso non valido: ${fullPath}`);
+
+  const bucketName = normalized.slice(0, slashIdx);
+  const objectName = normalized.slice(slashIdx + 1);
+
+  const file = objectStorageClient.bucket(bucketName).file(objectName);
+  await file.save(buffer, { contentType, metadata: { contentType } });
+}
+
 export class ObjectNotFoundError extends Error {
   constructor() {
     super("Object not found");

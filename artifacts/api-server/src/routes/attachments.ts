@@ -12,6 +12,8 @@ import {
   downloadObjectAsBuffer,
 } from "../lib/googleDrive";
 import { buildProtocolXml } from "../lib/protocolXml";
+import { stampPdf, stampImage, isStampable } from "../lib/stamp";
+import { uploadBufferToObjectPath } from "../lib/objectStorage";
 
 const router: IRouter = Router();
 
@@ -79,6 +81,73 @@ router.delete("/attachments/:id", async (req: Request, res: Response) => {
   } catch (err) {
     req.log.error({ err }, "Error deleting attachment");
     res.status(500).json({ error: "Failed to delete attachment" });
+  }
+});
+
+// ── Timbro digitale ───────────────────────────────────────────────────────
+router.post("/attachments/:id/stamp", async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (isNaN(id)) { res.status(400).json({ error: "ID non valido" }); return; }
+
+    const [attachment] = await db
+      .select()
+      .from(fileAttachmentsTable)
+      .where(eq(fileAttachmentsTable.id, id));
+
+    if (!attachment) { res.status(404).json({ error: "Allegato non trovato" }); return; }
+
+    if (!isStampable(attachment.mimeType)) {
+      res.status(400).json({
+        error: "Tipo file non supportato per il timbro (solo PDF, JPEG, PNG, WEBP, TIFF)",
+      });
+      return;
+    }
+
+    if (!attachment.protocolId) {
+      res.status(400).json({ error: "L'allegato non è associato a un protocollo" });
+      return;
+    }
+
+    const [protocol] = await db
+      .select({ id: protocolsTable.id, number: protocolsTable.number, registeredAt: protocolsTable.registeredAt })
+      .from(protocolsTable)
+      .where(eq(protocolsTable.id, attachment.protocolId));
+
+    if (!protocol) { res.status(404).json({ error: "Protocollo non trovato" }); return; }
+
+    const registeredAt = protocol.registeredAt ? new Date(protocol.registeredAt) : new Date();
+
+    // Download → stamp → re-upload in-place
+    const inputBuffer = await downloadObjectAsBuffer(attachment.objectPath);
+
+    const stampedBuffer = attachment.mimeType === "application/pdf"
+      ? await stampPdf(inputBuffer, protocol.number, registeredAt)
+      : await stampImage(inputBuffer, attachment.mimeType, protocol.number, registeredAt);
+
+    await uploadBufferToObjectPath(attachment.objectPath, stampedBuffer, attachment.mimeType);
+
+    // Update file size in DB
+    const [updated] = await db
+      .update(fileAttachmentsTable)
+      .set({ fileSize: stampedBuffer.length })
+      .where(eq(fileAttachmentsTable.id, id))
+      .returning();
+
+    res.json({ ok: true, attachment: updated });
+
+    // Re-sync to Drive asynchronously (file content changed)
+    syncToDrive(
+      attachment.id,
+      attachment.objectPath,
+      attachment.originalName,
+      attachment.mimeType,
+      req.log,
+      attachment.protocolId,
+    ).catch(() => {});
+  } catch (err) {
+    req.log.error({ err }, "Error stamping attachment");
+    res.status(500).json({ error: "Errore durante l'apposizione del timbro" });
   }
 });
 

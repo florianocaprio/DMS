@@ -3,7 +3,7 @@ import { useUpload } from "@workspace/object-storage-web";
 import { Button } from "@/components/ui/button";
 import {
   FileText, FileImage, FileArchive, FileSpreadsheet,
-  FileCode, File, Upload, Trash2, Download, Loader2, Paperclip, ExternalLink
+  FileCode, File, Upload, Trash2, Download, Loader2, Paperclip, ExternalLink, Stamp
 } from "lucide-react";
 
 interface Attachment {
@@ -24,8 +24,18 @@ interface FileAttachmentsProps {
   attachments: Attachment[];
   onAttachmentAdded?: (a: Attachment) => void;
   onAttachmentDeleted?: (id: number) => void;
+  onAttachmentUpdated?: (a: Attachment) => void;
   readonly?: boolean;
 }
+
+const STAMPABLE_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/tiff",
+  "image/gif",
+]);
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -86,11 +96,13 @@ async function deleteAttachment(id: number) {
 
 export function FileAttachments({
   documentId, protocolId, dossierId,
-  attachments, onAttachmentAdded, onAttachmentDeleted, readonly = false,
+  attachments, onAttachmentAdded, onAttachmentDeleted, onAttachmentUpdated, readonly = false,
 }: FileAttachmentsProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [stampingId, setStampingId] = useState<number | null>(null);
+  const [stampedIds, setStampedIds] = useState<Set<number>>(new Set());
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const { uploadFile, isUploading, progress } = useUpload({
@@ -132,6 +144,25 @@ export function FileAttachments({
       setUploadError("Errore durante l'eliminazione.");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleStamp(a: Attachment) {
+    setStampingId(a.id);
+    try {
+      const res = await fetch(`/api/attachments/${a.id}/stamp`, { method: "POST" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Errore sconosciuto" }));
+        setUploadError(err.error ?? "Errore durante il timbro");
+        return;
+      }
+      const data = await res.json();
+      setStampedIds(prev => new Set(prev).add(a.id));
+      if (data.attachment) onAttachmentUpdated?.(data.attachment);
+    } catch {
+      setUploadError("Errore di rete durante il timbro.");
+    } finally {
+      setStampingId(null);
     }
   }
 
@@ -258,6 +289,23 @@ export function FileAttachments({
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
+                {/* Timbro digitale: visibile solo per PDF e immagini collegati a un protocollo */}
+                {!readonly && STAMPABLE_TYPES.has(a.mimeType) && protocolId && (
+                  <button
+                    onClick={() => handleStamp(a)}
+                    disabled={stampingId === a.id}
+                    className={`p-1 rounded transition-colors ${
+                      stampedIds.has(a.id)
+                        ? "text-teal-600 hover:bg-teal-50"
+                        : "text-slate-400 hover:bg-amber-50 hover:text-amber-700"
+                    }`}
+                    title={stampedIds.has(a.id) ? "Timbro applicato ✓" : "Applica timbro protocollo"}
+                  >
+                    {stampingId === a.id
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Stamp className="w-3.5 h-3.5" />}
+                  </button>
+                )}
                 {a.driveViewLink && (
                   <a
                     href={a.driveViewLink}
