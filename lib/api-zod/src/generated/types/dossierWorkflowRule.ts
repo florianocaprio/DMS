@@ -10,11 +10,12 @@ import type { DossierWorkflowRuleConfig } from './dossierWorkflowRuleConfig';
 export interface DossierWorkflowRule {
   id: number;
   dossierId: number;
-  /** cc | approval | signature */
+  /** cc | approval | signature | move | copy */
   type: string;
   name: string;
   /** documents | protocols | both */
   appliesTo: string;
+  /** Type-specific config. cc { userIds, notifyEmails }, approval { approverId, notifyEmails }, signature { signatoryIds, requireAll, notifyEmails }, move|copy { targetDossierId }. */
   config?: DossierWorkflowRuleConfig;
   participantNames?: string[];
   isActive: boolean;

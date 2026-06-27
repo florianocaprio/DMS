@@ -5,6 +5,8 @@ import {
   useListDossierWorkflowRules,
   useListDossierWorkflowInstances,
   useListUsers,
+  useListDossiers,
+  useGetCurrentUser,
   useCreateDossierWorkflowRule,
   useDeleteDossierWorkflowRule,
   useUpdateDossierWorkflowRule,
@@ -12,6 +14,7 @@ import {
   getListDossierWorkflowRulesQueryKey,
   getListDossierWorkflowInstancesQueryKey,
   getListUsersQueryKey,
+  getListDossiersQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +25,10 @@ import { StatusBadge } from "@/components/shared/status-badges";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Trash2, Users, UserCheck, PenTool, CheckCircle, XCircle, Eye,
-  GitMerge, FileText, Files, Power,
+  GitMerge, FileText, Files, Power, FolderInput, Copy,
 } from "lucide-react";
 
-const CURRENT_USER_ID = 1;
-
-type RuleType = "cc" | "approval" | "signature";
+type RuleType = "cc" | "approval" | "signature" | "move" | "copy";
 type AppliesTo = "documents" | "protocols" | "both";
 
 interface RuleConfig {
@@ -35,6 +36,8 @@ interface RuleConfig {
   approverId?: number;
   signatoryIds?: number[];
   requireAll?: boolean;
+  notifyEmails?: string[];
+  targetDossierId?: number;
 }
 interface Rule {
   id: number;
@@ -66,6 +69,8 @@ const TYPE_META: Record<RuleType, { label: string; icon: typeof Users; color: st
   cc: { label: "Conoscenza", icon: Users, color: "bg-sky-50 text-sky-700 border-sky-200" },
   approval: { label: "Approvazione", icon: UserCheck, color: "bg-amber-50 text-amber-700 border-amber-200" },
   signature: { label: "Firma", icon: PenTool, color: "bg-purple-50 text-purple-700 border-purple-200" },
+  move: { label: "Sposta", icon: FolderInput, color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  copy: { label: "Copia", icon: Copy, color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
 };
 
 const APPLIES_LABEL: Record<string, string> = {
@@ -93,6 +98,9 @@ export default function DossierWorkflowTab({ dossierId }: { dossierId: number })
     query: { queryKey: getListDossierWorkflowInstancesQueryKey(dossierId) },
   });
   const { data: users } = useListUsers(undefined, { query: { queryKey: getListUsersQueryKey() } });
+  const { data: dossiers } = useListDossiers({}, { query: { queryKey: getListDossiersQueryKey() } });
+  const { data: currentUser } = useGetCurrentUser();
+  const currentUserId = currentUser?.id ?? 0;
 
   const createRule = useCreateDossierWorkflowRule();
   const deleteRule = useDeleteDossierWorkflowRule();
@@ -104,6 +112,8 @@ export default function DossierWorkflowTab({ dossierId }: { dossierId: number })
   const ruleList = (rules ?? []) as Rule[];
   const instanceList = (instances ?? []) as Instance[];
   const userList = (users ?? []) as Array<{ id: number; name: string }>;
+  const dossierList = ((dossiers?.items ?? []) as Array<{ id: number; code: string; title: string }>)
+    .filter((d) => d.id !== dossierId);
 
   function invalidate() {
     qc.invalidateQueries({
@@ -218,7 +228,7 @@ export default function DossierWorkflowTab({ dossierId }: { dossierId: number })
         ) : (
           <div className="space-y-2">
             {pendingInstances.map((inst) => (
-              <InstanceCard key={inst.id} inst={inst} onAct={handleAct} />
+              <InstanceCard key={inst.id} inst={inst} onAct={handleAct} currentUserId={currentUserId} />
             ))}
           </div>
         )}
@@ -230,7 +240,7 @@ export default function DossierWorkflowTab({ dossierId }: { dossierId: number })
           <h3 className="text-sm font-semibold text-foreground mb-3">Concluse</h3>
           <div className="space-y-2">
             {resolvedInstances.map((inst) => (
-              <InstanceCard key={inst.id} inst={inst} onAct={handleAct} />
+              <InstanceCard key={inst.id} inst={inst} onAct={handleAct} currentUserId={currentUserId} />
             ))}
           </div>
         </section>
@@ -240,6 +250,7 @@ export default function DossierWorkflowTab({ dossierId }: { dossierId: number })
         <AddRuleDialog
           dossierId={dossierId}
           users={userList}
+          dossiers={dossierList}
           onClose={() => setDialogOpen(false)}
           onCreated={() => { invalidate(); setDialogOpen(false); }}
           createRule={createRule}
@@ -251,10 +262,10 @@ export default function DossierWorkflowTab({ dossierId }: { dossierId: number })
 
 // ─── Instance card ───────────────────────────────────────────────────────────
 
-function InstanceCard({ inst, onAct }: { inst: Instance; onAct: (id: number, a: "approve" | "reject" | "acknowledge") => void }) {
+function InstanceCard({ inst, onAct, currentUserId }: { inst: Instance; onAct: (id: number, a: "approve" | "reject" | "acknowledge") => void; currentUserId: number }) {
   const meta = TYPE_META[inst.type as RuleType] ?? TYPE_META.cc;
   const Icon = meta.icon;
-  const mine = inst.participants.find((p) => p.userId === CURRENT_USER_ID && p.status === "pending");
+  const mine = inst.participants.find((p) => p.userId === currentUserId && p.status === "pending");
   const targetHref = inst.targetType === "document" ? `/documents/${inst.targetId}` : `/protocols/${inst.targetId}`;
 
   return (
@@ -321,11 +332,19 @@ function InstanceCard({ inst, onAct }: { inst: Instance; onAct: (id: number, a: 
 
 // ─── Add rule dialog ─────────────────────────────────────────────────────────
 
+function parseEmails(raw: string): string[] {
+  return raw
+    .split(/[\s,;]+/)
+    .map((e) => e.trim())
+    .filter((e) => e.length > 0);
+}
+
 function AddRuleDialog({
-  dossierId, users, onClose, onCreated, createRule,
+  dossierId, users, dossiers, onClose, onCreated, createRule,
 }: {
   dossierId: number;
   users: Array<{ id: number; name: string }>;
+  dossiers: Array<{ id: number; code: string; title: string }>;
   onClose: () => void;
   onCreated: () => void;
   createRule: ReturnType<typeof useCreateDossierWorkflowRule>;
@@ -337,11 +356,15 @@ function AddRuleDialog({
   const [selected, setSelected] = useState<number[]>([]);
   const [approverId, setApproverId] = useState<number | null>(null);
   const [requireAll, setRequireAll] = useState(true);
+  const [notifyEmailsRaw, setNotifyEmailsRaw] = useState("");
+  const [targetDossierId, setTargetDossierId] = useState<number | null>(null);
 
   const DEFAULT_NAMES: Record<RuleType, string> = {
     cc: "Invio in conoscenza al direttivo",
     approval: "Approvazione obbligatoria",
     signature: "Firma documenti",
+    move: "Sposta in sottofascicolo",
+    copy: "Copia in altro fascicolo",
   };
 
   function toggleUser(id: number) {
@@ -350,16 +373,26 @@ function AddRuleDialog({
 
   function handleSubmit() {
     const finalName = name.trim() || DEFAULT_NAMES[type];
+    const notifyEmails = parseEmails(notifyEmailsRaw);
+    const badEmail = notifyEmails.find((e) => !e.includes("@"));
+    if (badEmail) { toast({ title: `Email non valida: ${badEmail}`, variant: "destructive" }); return; }
+
     let config: RuleConfig;
     if (type === "cc") {
-      if (selected.length === 0) { toast({ title: "Seleziona almeno un destinatario", variant: "destructive" }); return; }
-      config = { userIds: selected };
+      if (selected.length === 0 && notifyEmails.length === 0) {
+        toast({ title: "Seleziona un destinatario o inserisci un'email", variant: "destructive" }); return;
+      }
+      config = { userIds: selected, ...(notifyEmails.length > 0 && { notifyEmails }) };
     } else if (type === "approval") {
       if (!approverId) { toast({ title: "Seleziona un approvatore", variant: "destructive" }); return; }
-      config = { approverId };
-    } else {
+      config = { approverId, ...(notifyEmails.length > 0 && { notifyEmails }) };
+    } else if (type === "signature") {
       if (selected.length === 0) { toast({ title: "Seleziona almeno un firmatario", variant: "destructive" }); return; }
-      config = { signatoryIds: selected, requireAll };
+      config = { signatoryIds: selected, requireAll, ...(notifyEmails.length > 0 && { notifyEmails }) };
+    } else {
+      // move | copy
+      if (!targetDossierId) { toast({ title: "Seleziona il fascicolo di destinazione", variant: "destructive" }); return; }
+      config = { targetDossierId };
     }
     const effectiveAppliesTo: AppliesTo = type === "signature" ? "documents" : appliesTo;
 
@@ -391,7 +424,7 @@ function AddRuleDialog({
                   <button
                     key={t}
                     type="button"
-                    onClick={() => { setType(t); setSelected([]); setApproverId(null); }}
+                    onClick={() => { setType(t); setSelected([]); setApproverId(null); setTargetDossierId(null); }}
                     className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border text-xs transition-colors ${
                       type === t ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
                     }`}
@@ -429,6 +462,28 @@ function AddRuleDialog({
             <p className="text-xs text-muted-foreground">Le regole di firma si applicano solo ai documenti.</p>
           )}
 
+          {/* Target dossier picker (move | copy) */}
+          {(type === "move" || type === "copy") && (
+            <div>
+              <Label className="text-xs">
+                {type === "move" ? "Sposta nel fascicolo" : "Copia nel fascicolo"}
+              </Label>
+              <select
+                className="w-full mt-1.5 border border-border rounded-md px-3 py-2 text-sm bg-background"
+                value={targetDossierId ?? ""}
+                onChange={(e) => setTargetDossierId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Seleziona fascicolo…</option>
+                {dossiers.map((d) => <option key={d.id} value={d.id}>{d.code} — {d.title}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {type === "move"
+                  ? "Il contenuto verrà spostato (rimosso da questo fascicolo e aggiunto a quello scelto)."
+                  : "Il contenuto resterà qui e verrà aggiunto anche al fascicolo scelto."}
+              </p>
+            </div>
+          )}
+
           {/* Participants */}
           {type === "approval" ? (
             <div>
@@ -442,7 +497,7 @@ function AddRuleDialog({
                 {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
-          ) : (
+          ) : (type === "cc" || type === "signature") ? (
             <div>
               <Label className="text-xs">{type === "cc" ? "Destinatari in conoscenza" : "Firmatari"}</Label>
               <div className="mt-1.5 max-h-40 overflow-y-auto border border-border rounded-md divide-y divide-border/50">
@@ -453,6 +508,22 @@ function AddRuleDialog({
                   </label>
                 ))}
               </div>
+            </div>
+          ) : null}
+
+          {/* notifyEmails (cc | approval | signature) */}
+          {(type === "cc" || type === "approval" || type === "signature") && (
+            <div>
+              <Label className="text-xs">Email aggiuntive (notifica)</Label>
+              <Input
+                className="mt-1.5"
+                value={notifyEmailsRaw}
+                onChange={(e) => setNotifyEmailsRaw(e.target.value)}
+                placeholder="mario@esempio.it, ufficio@esempio.it"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Indirizzi esterni a cui inviare una notifica via email (separati da virgola).
+              </p>
             </div>
           )}
 

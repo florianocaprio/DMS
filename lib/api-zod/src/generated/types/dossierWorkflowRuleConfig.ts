@@ -6,4 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Type-specific config. cc { userIds, notifyEmails }, approval { approverId, notifyEmails }, signature { signatoryIds, requireAll, notifyEmails }, move|copy { targetDossierId }.
+ */
 export type DossierWorkflowRuleConfig = { [key: string]: unknown };

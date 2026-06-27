@@ -35,9 +35,10 @@ export type InsertDossierWorkflowRule = z.infer<typeof insertDossierWorkflowRule
 export type DossierWorkflowRule = typeof dossierWorkflowRulesTable.$inferSelect;
 export type DossierWorkflowInstance = typeof dossierWorkflowInstancesTable.$inferSelect;
 
-export interface CcRuleConfig { userIds: number[] }
-export interface ApprovalRuleConfig { approverId: number }
-export interface SignatureRuleConfig { signatoryIds: number[]; requireAll: boolean }
+export interface CcRuleConfig { userIds: number[]; notifyEmails?: string[] }
+export interface ApprovalRuleConfig { approverId: number; notifyEmails?: string[] }
+export interface SignatureRuleConfig { signatoryIds: number[]; requireAll: boolean; notifyEmails?: string[] }
+export interface MoveCopyRuleConfig { targetDossierId: number }
 
 export interface InstanceParticipant {
   userId: number;

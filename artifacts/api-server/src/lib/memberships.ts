@@ -1,4 +1,4 @@
-import { db, protocolDossiersTable, protocolsTable } from "@workspace/db";
+import { db, protocolDossiersTable, protocolsTable, documentDossiersTable, documentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -44,6 +44,53 @@ export async function getEffectiveMemberships(): Promise<EffectiveMembership[]> 
     }
   }
   return result;
+}
+
+export type DocumentMembership = { documentId: number; dossierId: number; isHome: boolean };
+
+/**
+ * Returns the effective document↔dossier memberships, merging each document's
+ * "home" dossier (`documents.dossierId`) with the `document_dossiers` junction
+ * (extra copies). A document's home is always included; junction rows add
+ * further memberships. Deduplicated by (documentId, dossierId).
+ */
+export async function getEffectiveDocumentMemberships(): Promise<DocumentMembership[]> {
+  const docs = await db.select({ id: documentsTable.id, dossierId: documentsTable.dossierId }).from(documentsTable);
+  const junction = await db.select().from(documentDossiersTable);
+
+  const seen = new Set<string>();
+  const result: DocumentMembership[] = [];
+  for (const d of docs) {
+    if (d.dossierId != null) {
+      const key = `${d.id}:${d.dossierId}`;
+      seen.add(key);
+      result.push({ documentId: d.id, dossierId: d.dossierId, isHome: true });
+    }
+  }
+  for (const m of junction) {
+    const key = `${m.documentId}:${m.dossierId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({ documentId: m.documentId, dossierId: m.dossierId, isHome: false });
+  }
+  return result;
+}
+
+/**
+ * Map of documentId -> set of effective dossier ids (home ∪ junction copies).
+ */
+export async function getDocumentDossierSets(): Promise<Map<number, Set<number>>> {
+  const memberships = await getEffectiveDocumentMemberships();
+  const map = new Map<number, Set<number>>();
+  for (const m of memberships) {
+    let set = map.get(m.documentId);
+    if (!set) {
+      set = new Set<number>();
+      map.set(m.documentId, set);
+    }
+    set.add(m.dossierId);
+  }
+  return map;
 }
 
 /**

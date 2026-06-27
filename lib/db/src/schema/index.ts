@@ -4,6 +4,7 @@ export * from "./dossiers";
 export * from "./documents";
 export * from "./protocols";
 export * from "./protocolDossiers";
+export * from "./documentDossiers";
 export * from "./tasks";
 export * from "./workflows";
 export * from "./dossierWorkflows";

@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { documentsTable, usersTable, dossiersTable, classificationsTable, protocolsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
+import { getDocumentDossierSets } from "../lib/memberships";
 
 const router = Router();
 
@@ -26,8 +27,23 @@ router.get("/documents", async (req, res): Promise<void> => {
   let rows = await db.select().from(documentsTable).orderBy(desc(documentsTable.createdAt));
   if (status) rows = rows.filter((d) => d.status === status);
   if (type) rows = rows.filter((d) => d.type === type);
-  if (dossierId) rows = rows.filter((d) => d.dossierId === Number(dossierId));
-  if (dossierIdSet) rows = rows.filter((d) => d.dossierId !== null && dossierIdSet.has(d.dossierId));
+  // Filter by effective membership (home dossier ∪ copied memberships) so a
+  // document copied into another fascicolo shows up there too.
+  if (dossierId || dossierIdSet) {
+    const docSets = await getDocumentDossierSets();
+    if (dossierId) {
+      const did = Number(dossierId);
+      rows = rows.filter((d) => docSets.get(d.id)?.has(did) ?? false);
+    }
+    if (dossierIdSet) {
+      rows = rows.filter((d) => {
+        const set = docSets.get(d.id);
+        if (!set) return false;
+        for (const id of dossierIdSet) if (set.has(id)) return true;
+        return false;
+      });
+    }
+  }
   if (assignedToMe === "true") rows = rows.filter((d) => d.responsibleId === req.currentUserId);
 
   const total = rows.length;

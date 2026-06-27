@@ -13,8 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { GitBranch, Play, CheckCircle, XCircle, Clock, Users, UserCheck, PenTool, Eye, FileText, Files, FolderOpen } from "lucide-react";
 
-const CURRENT_USER_ID = 1;
-
 const INST_TYPE_META: Record<string, { label: string; icon: typeof Users; color: string }> = {
   cc: { label: "Conoscenza", icon: Users, color: "bg-sky-50 text-sky-700 border-sky-200" },
   approval: { label: "Approvazione", icon: UserCheck, color: "bg-amber-50 text-amber-700 border-amber-200" },

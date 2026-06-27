@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { dossiersTable, usersTable, classificationsTable, documentsTable, protocolsTable } from "@workspace/db";
 import { eq, sql, count, inArray } from "drizzle-orm";
-import { getEffectiveMemberships } from "../lib/memberships";
+import { getEffectiveMemberships, getEffectiveDocumentMemberships } from "../lib/memberships";
 
 const router = Router();
 
@@ -107,7 +107,11 @@ router.get("/dossiers/:id/children", async (req, res): Promise<void> => {
 
 router.get("/dossiers/:id/documents", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const docs = await db.select().from(documentsTable).where(eq(documentsTable.dossierId, id));
+  // Effective membership: documents whose home OR a copied membership is this dossier.
+  const memberships = (await getEffectiveDocumentMemberships()).filter((m) => m.dossierId === id);
+  const docIds = new Set(memberships.map((m) => m.documentId));
+  const allDocs = await db.select().from(documentsTable);
+  const docs = allDocs.filter((d) => docIds.has(d.id));
   const userMap = await getUserMap();
   res.json(docs.map((doc) => fmtDoc(doc, userMap)));
 });
@@ -165,8 +169,12 @@ async function getDossierMap() {
   return Object.fromEntries(rows.map((d) => [d.id, d]));
 }
 async function getDocCountMap() {
-  const docCounts = await db.select({ dossierId: documentsTable.dossierId, cnt: count() }).from(documentsTable).groupBy(documentsTable.dossierId);
-  return Object.fromEntries(docCounts.filter((x) => x.dossierId != null).map((x) => [x.dossierId as number, Number(x.cnt)]));
+  // Count effective memberships (home ∪ copied) so copied docs are counted in
+  // every fascicolo they belong to.
+  const memberships = await getEffectiveDocumentMemberships();
+  const map: Record<number, number> = {};
+  for (const m of memberships) map[m.dossierId] = (map[m.dossierId] ?? 0) + 1;
+  return map;
 }
 async function getProtCountMap() {
   const memberships = await getEffectiveMemberships();
@@ -197,6 +205,7 @@ function fmtDossier(
     year: d.year,
     area: d.area,
     confidentiality: d.confidentiality,
+    isDefault: d.isDefault,
     parentId: d.parentId,
     parentCode: d.parentId ? (parentMap[d.parentId]?.code ?? null) : null,
     parentTitle: d.parentId ? (parentMap[d.parentId]?.title ?? null) : null,

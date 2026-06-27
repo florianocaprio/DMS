@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useListDocuments,
   useCreateDocument,
@@ -102,7 +102,16 @@ export default function DocumentsPage() {
   const items = (data?.items ?? []) as DocItem[];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
-  const dossierList = (dossiers?.items ?? []) as Array<{ id: number; code: string; title: string }>;
+  const dossierList = (dossiers?.items ?? []) as Array<{ id: number; code: string; title: string; isDefault?: boolean }>;
+  const defaultDossier = dossierList.find((d) => d.isDefault);
+
+  // New documents default to the "Archivio Documenti" fascicolo (the user can
+  // still pick another, or "Nessuno", in the dialog).
+  useEffect(() => {
+    if (showNew && defaultDossier && form.dossierId === "") {
+      setForm((f) => ({ ...f, dossierId: String(defaultDossier.id) }));
+    }
+  }, [showNew, defaultDossier, form.dossierId]);
 
   function toggleDossier(id: number) {
     setPage(1);

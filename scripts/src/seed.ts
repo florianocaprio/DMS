@@ -35,6 +35,7 @@ async function seed() {
     { code: "FASC-2026-0002", title: "Convenzione Comune di Roma", status: "open", year: 2026, area: "Legale", confidentiality: "reserved", responsibleId: 5 },
     { code: "FASC-2026-0003", title: "Assunzione Personale 2026", status: "open", year: 2026, area: "Risorse Umane", confidentiality: "normal", responsibleId: 2 },
     { code: "FASC-2025-0001", title: "Rendiconto 2025", status: "closed", year: 2025, area: "Contabilita", confidentiality: "normal", responsibleId: 4 },
+    { code: "FASC-2026-ARCH", title: "Archivio Documenti", status: "open", year: 2026, area: "Generale", confidentiality: "normal", isDefault: true },
   ]).onConflictDoNothing();
 
   console.log("Seeding protocols...");

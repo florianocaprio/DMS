@@ -986,6 +986,7 @@ export const ListDossiersQueryParams = zod.object({
 })
 
 export const listDossiersResponseItemsItemConfidentialityDefault = `normal`;
+export const listDossiersResponseItemsItemIsDefaultDefault = false;
 export const listDossiersResponseItemsItemChildCountDefault = 0;
 export const listDossiersResponseItemsItemDocumentCountDefault = 0;
 export const listDossiersResponseItemsItemProtocolCountDefault = 0;
@@ -1000,6 +1001,7 @@ export const ListDossiersResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(listDossiersResponseItemsItemConfidentialityDefault),
+  "isDefault": zod.boolean().default(listDossiersResponseItemsItemIsDefaultDefault),
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
@@ -1038,6 +1040,7 @@ export const CreateDossierBody = zod.object({
 })
 
 export const createDossierResponseConfidentialityDefault = `normal`;
+export const createDossierResponseIsDefaultDefault = false;
 export const createDossierResponseChildCountDefault = 0;
 export const createDossierResponseDocumentCountDefault = 0;
 export const createDossierResponseProtocolCountDefault = 0;
@@ -1051,6 +1054,7 @@ export const CreateDossierResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(createDossierResponseConfidentialityDefault),
+  "isDefault": zod.boolean().default(createDossierResponseIsDefaultDefault),
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
@@ -1076,6 +1080,7 @@ export const GetDossierParams = zod.object({
 })
 
 export const getDossierResponseConfidentialityDefault = `normal`;
+export const getDossierResponseIsDefaultDefault = false;
 export const getDossierResponseChildCountDefault = 0;
 export const getDossierResponseDocumentCountDefault = 0;
 export const getDossierResponseProtocolCountDefault = 0;
@@ -1089,6 +1094,7 @@ export const GetDossierResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(getDossierResponseConfidentialityDefault),
+  "isDefault": zod.boolean().default(getDossierResponseIsDefaultDefault),
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
@@ -1126,6 +1132,7 @@ export const UpdateDossierBody = zod.object({
 })
 
 export const updateDossierResponseConfidentialityDefault = `normal`;
+export const updateDossierResponseIsDefaultDefault = false;
 export const updateDossierResponseChildCountDefault = 0;
 export const updateDossierResponseDocumentCountDefault = 0;
 export const updateDossierResponseProtocolCountDefault = 0;
@@ -1139,6 +1146,7 @@ export const UpdateDossierResponse = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(updateDossierResponseConfidentialityDefault),
+  "isDefault": zod.boolean().default(updateDossierResponseIsDefaultDefault),
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
@@ -1253,6 +1261,7 @@ export const GetDossierChildrenParams = zod.object({
 })
 
 export const getDossierChildrenResponseConfidentialityDefault = `normal`;
+export const getDossierChildrenResponseIsDefaultDefault = false;
 export const getDossierChildrenResponseChildCountDefault = 0;
 export const getDossierChildrenResponseDocumentCountDefault = 0;
 export const getDossierChildrenResponseProtocolCountDefault = 0;
@@ -1266,6 +1275,7 @@ export const GetDossierChildrenResponseItem = zod.object({
   "year": zod.number(),
   "area": zod.string().nullish(),
   "confidentiality": zod.string().default(getDossierChildrenResponseConfidentialityDefault),
+  "isDefault": zod.boolean().default(getDossierChildrenResponseIsDefaultDefault),
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
@@ -1294,10 +1304,10 @@ export const ListDossierWorkflowRulesParams = zod.object({
 export const ListDossierWorkflowRulesResponseItem = zod.object({
   "id": zod.number(),
   "dossierId": zod.number(),
-  "type": zod.string().describe('cc | approval | signature'),
+  "type": zod.string().describe('cc | approval | signature | move | copy'),
   "name": zod.string(),
   "appliesTo": zod.string().describe('documents | protocols | both'),
-  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "config": zod.record(zod.string(), zod.unknown()).optional().describe('Type-specific config. cc { userIds, notifyEmails }, approval { approverId, notifyEmails }, signature { signatoryIds, requireAll, notifyEmails }, move|copy { targetDossierId }.'),
   "participantNames": zod.array(zod.string()).optional(),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
@@ -1323,10 +1333,10 @@ export const CreateDossierWorkflowRuleBody = zod.object({
 export const CreateDossierWorkflowRuleResponse = zod.object({
   "id": zod.number(),
   "dossierId": zod.number(),
-  "type": zod.string().describe('cc | approval | signature'),
+  "type": zod.string().describe('cc | approval | signature | move | copy'),
   "name": zod.string(),
   "appliesTo": zod.string().describe('documents | protocols | both'),
-  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "config": zod.record(zod.string(), zod.unknown()).optional().describe('Type-specific config. cc { userIds, notifyEmails }, approval { approverId, notifyEmails }, signature { signatoryIds, requireAll, notifyEmails }, move|copy { targetDossierId }.'),
   "participantNames": zod.array(zod.string()).optional(),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
@@ -1350,10 +1360,10 @@ export const UpdateDossierWorkflowRuleBody = zod.object({
 export const UpdateDossierWorkflowRuleResponse = zod.object({
   "id": zod.number(),
   "dossierId": zod.number(),
-  "type": zod.string().describe('cc | approval | signature'),
+  "type": zod.string().describe('cc | approval | signature | move | copy'),
   "name": zod.string(),
   "appliesTo": zod.string().describe('documents | protocols | both'),
-  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "config": zod.record(zod.string(), zod.unknown()).optional().describe('Type-specific config. cc { userIds, notifyEmails }, approval { approverId, notifyEmails }, signature { signatoryIds, requireAll, notifyEmails }, move|copy { targetDossierId }.'),
   "participantNames": zod.array(zod.string()).optional(),
   "isActive": zod.boolean(),
   "createdAt": zod.string()

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -11,6 +11,7 @@ export const dossiersTable = pgTable("dossiers", {
   year: integer("year").notNull(),
   area: text("area"),
   confidentiality: text("confidentiality").notNull().default("normal"),
+  isDefault: boolean("is_default").notNull().default(false),
   parentId: integer("parent_id").references((): AnyPgColumn => dossiersTable.id, { onDelete: "set null" }),
   responsibleId: integer("responsible_id"),
   classificationId: integer("classification_id"),

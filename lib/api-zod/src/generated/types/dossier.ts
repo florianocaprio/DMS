@@ -17,6 +17,7 @@ export interface Dossier {
   /** @nullable */
   area?: string | null;
   confidentiality?: string;
+  isDefault?: boolean;
   /** @nullable */
   parentId?: number | null;
   /** @nullable */
