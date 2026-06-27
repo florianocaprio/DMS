@@ -103,13 +103,17 @@ function GoogleIcon() {
 
 function LoginScreen() {
   const { signIn, isLoaded } = useSignIn();
+  const [loc] = useLocation();
 
   const onGoogle = () => {
     if (!isLoaded || !signIn) return;
+    // Preserve the originally requested route so the user lands back on it after
+    // the OAuth round-trip (loc is base-relative; prepend basePath for Clerk).
+    const returnTo = `${basePath}${loc}` || "/";
     void signIn.authenticateWithRedirect({
       strategy: "oauth_google",
       redirectUrl: `${basePath}/sso-callback`,
-      redirectUrlComplete: basePath || "/",
+      redirectUrlComplete: returnTo,
     });
   };
 
@@ -231,9 +235,12 @@ function ClerkProviderWithRoutes() {
       <Switch>
         <Route path="/sso-callback">
           <FullscreenLoader />
+          {/* Fallback URLs only — the per-attempt redirectUrlComplete set in
+              LoginScreen takes precedence, returning the user to their
+              originally requested deep link. */}
           <AuthenticateWithRedirectCallback
-            signInForceRedirectUrl={basePath || "/"}
-            signUpForceRedirectUrl={basePath || "/"}
+            signInFallbackRedirectUrl={basePath || "/"}
+            signUpFallbackRedirectUrl={basePath || "/"}
           />
         </Route>
         <Route>

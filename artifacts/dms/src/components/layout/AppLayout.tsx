@@ -40,13 +40,6 @@ const adminNavigation = [
   { name: "Impostazioni", href: "/admin/settings", icon: Settings },
 ];
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Amministratore",
-  manager: "Responsabile",
-  collaborator: "Collaboratore",
-  viewer: "Visualizzatore",
-};
-
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: user } = useGetCurrentUser();
@@ -126,7 +119,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-semibold text-foreground truncate">{user?.name ?? "Utente"}</div>
-              <div className="text-xs text-muted-foreground truncate">{ROLE_LABELS[user?.role ?? ""] ?? user?.role ?? "—"}</div>
+              <div className="text-xs text-muted-foreground truncate">{user?.email ?? "—"}</div>
             </div>
             <button
               type="button"

@@ -1,34 +1,33 @@
 ---
 name: Clerk auth + current-user replacement
-description: How auth is wired and the trap when replacing the hardcoded current user across routes
+description: Durable lessons for the DMS Clerk SSO setup and replacing a hardcoded current user across routes
 ---
 
 # Clerk SSO + replacing the hardcoded current user
 
-The DMS uses Replit-managed Clerk (Google SSO, domain-restricted to @angeliinmoto.it). `requireAuth`
-middleware runs before audit/router on all `/api` routes except PUBLIC_PATHS (/healthz) and sets
-`req.currentUserId` / `req.currentUser`. Because every protected route runs behind it, `req.currentUserId!`
-(non-null) is safe inside route handlers.
+**Replacing a hardcoded current user is not just a numeric-literal search.** The hardcoded identity
+can hide behind a named module-level constant, not only `id: 1` / `=== 1`. Grep for named constants
+(USER_ID, CURRENT_USER, etc.) as well, or you will leave broken access control behind.
+**Why:** a leftover `CURRENT_USER_ID = 1` in a protected route means any authenticated user acts as
+user 1 and real users can't act on their own items — a code review caught exactly this miss.
 
-**Trap:** the hardcoded current user was NOT only literal `id: 1` / `=== 1`. One route module declared a
-named module-level constant (`const CURRENT_USER_ID = 1`) and used it in `pendingForMe` filters and the
-`act` participant lookup. A grep for `1` misses these. When replacing the current user, grep for named
-constants too (e.g. `USER_ID`, `CURRENT_USER`), not just numeric literals — a code review caught the miss.
+**Auth chain ordering matters.** The Clerk proxy middleware must run before body parsers; `requireAuth`
+must run before audit logging so the audit layer sees the resolved user. Because every protected route
+sits behind `requireAuth`, the resolved current-user id is safe to treat as non-null inside handlers.
 
-**Why:** leaving a `CURRENT_USER_ID = 1` constant in a protected route is broken access control: any
-authenticated user acts as user 1, and real users can't act on their own pending items.
+**System actors are not "the current user."** Non-request-scoped writes (automated workflow-engine
+signature requests, test seed helpers) legitimately keep a fixed actor id and must NOT be swapped to a
+request user — there is no request context for them.
 
-**How to apply:** when threading the authenticated user through routes, search for both numeric `1`
-literals AND named constants; verify each handler is behind `requireAuth` before using `req.currentUserId!`.
+## `@clerk/react` dual API trap
+`@clerk/react` (not `@clerk/clerk-react`) has two entrypoints. The default export uses the new "signals"
+API where `useSignIn()` lacks `isLoaded` and `authenticateWithRedirect`. For the classic OAuth redirect
+flow import `useSignIn` from `@clerk/react/legacy`; both entrypoints share the same `<ClerkProvider>`.
+**Why:** typecheck fails cryptically (`SignInSignalValue` / `SignInFutureResource`) if you assume the
+classic shape on the default import.
 
-## Frontend Clerk API gotcha
-`@clerk/react` (not @clerk/clerk-react) has two entrypoints: the default index export uses the new
-"signals" API where `useSignIn()` returns `SignInSignalValue` (no `isLoaded`, no
-`signIn.authenticateWithRedirect`). For the classic OAuth redirect flow import
-`useSignIn` from `@clerk/react/legacy` — it returns the classic `{ isLoaded, signIn }` with
-`authenticateWithRedirect`. Both entrypoints share the same `<ClerkProvider>` context.
-
-## System-actor exception
-Automated, non-request-scoped writes legitimately keep a fixed system actor (id 1): the dossier workflow
-engine's auto-created signature requests and test seed helpers. These are NOT "the current user" and were
-intentionally left alone.
+## Deep-link return after SSO
+To return a user to their originally requested route after OAuth, pass that route as
+`redirectUrlComplete` on `authenticateWithRedirect`, and use the *Fallback* (not *Force*) redirect-url
+props on the callback component — Force props override the per-attempt completion URL and discard the
+deep link.
