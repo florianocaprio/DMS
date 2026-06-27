@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import logoUrl from "@assets/Logo_Original_tondo_1782541417598.png";
 import {
   LayoutDashboard,
   Files,
@@ -53,9 +54,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="w-60 border-r border-border bg-card flex flex-col fixed inset-y-0 z-10">
         <div className="h-14 flex items-center px-4 border-b border-border">
           <div className="font-bold text-base flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-xs font-black">
-              PD
-            </div>
+            <img src={logoUrl} alt="Angeli in Moto" className="w-7 h-7 rounded-md object-contain" />
             <span className="text-foreground">ProtocolloDigitale</span>
           </div>
         </div>
