@@ -1,0 +1,480 @@
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "wouter";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/shared/status-badges";
+import { useToast } from "@/hooks/use-toast";
+import {
+  ArrowLeft,
+  FolderOpen,
+  FileText,
+  Files,
+  Edit2,
+  Save,
+  X,
+  User,
+  Calendar,
+  Tag,
+  Lock,
+  RefreshCw,
+} from "lucide-react";
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+
+interface Dossier {
+  id: number;
+  code: string;
+  title: string;
+  description: string | null;
+  status: string;
+  year: number;
+  area: string | null;
+  confidentiality: string;
+  responsibleId: number | null;
+  responsibleName: string | null;
+  classificationId: number | null;
+  classificationCode: string | null;
+  documentCount: number;
+  protocolCount: number;
+  openedAt: string;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Document {
+  id: number;
+  title: string;
+  type: string;
+  status: string;
+  subject: string;
+  priority: string;
+  version: number;
+  createdByName: string;
+  createdAt: string;
+}
+
+interface Protocol {
+  id: number;
+  number: string;
+  type: string;
+  status: string;
+  subject: string;
+  sender: string | null;
+  priority: string;
+  registeredAt: string | null;
+  createdByName: string;
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+const API = "/api";
+
+async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
+  const r = await fetch(`${API}${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: r.statusText })) as { error?: string };
+    throw new Error(err.error ?? r.statusText);
+  }
+  return r.json() as Promise<T>;
+}
+
+function fmtDate(d: string | null | undefined) {
+  if (!d) return "—";
+  return format(new Date(d), "dd/MM/yyyy", { locale: it });
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  open: "Aperto",
+  closed: "Chiuso",
+  archived: "Archiviato",
+};
+
+const CONFIDENTIALITY_LABELS: Record<string, string> = {
+  normal: "Normale",
+  reserved: "Riservato",
+  secret: "Segreto",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  incoming: "Entrata",
+  outgoing: "Uscita",
+  internal: "Interno",
+  reserved: "Riservato",
+};
+
+// ─── Component ─────────────────────────────────────────────────────────────────
+
+type Tab = "documents" | "protocols";
+
+interface Props {
+  id: string;
+}
+
+export default function DossierDetail({ id }: Props) {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const dossierId = Number(id);
+
+  const [dossier, setDossier] = useState<Dossier | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [protocols, setProtocols] = useState<Protocol[]>([]);
+  const [tab, setTab] = useState<Tab>("documents");
+  const [loading, setLoading] = useState(true);
+  const [loadingTab, setLoadingTab] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+
+  // Edit state
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ title: "", description: "", area: "", status: "", confidentiality: "" });
+  const [saving, setSaving] = useState(false);
+
+  // Initial load
+  useEffect(() => {
+    (async () => {
+      try {
+        const d = await apiFetch<Dossier>(`/dossiers/${dossierId}`);
+        setDossier(d);
+        setEditForm({ title: d.title, description: d.description ?? "", area: d.area ?? "", status: d.status, confidentiality: d.confidentiality });
+        const docs = await apiFetch<Document[]>(`/dossiers/${dossierId}/documents`);
+        setDocuments(docs);
+      } catch (e) {
+        if (e instanceof Error && e.message.includes("Not found")) setNotFound(true);
+        else toast({ title: "Errore caricamento", description: String(e), variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [dossierId]);
+
+  const loadTab = async (t: Tab) => {
+    setTab(t);
+    setLoadingTab(true);
+    try {
+      if (t === "documents") {
+        const docs = await apiFetch<Document[]>(`/dossiers/${dossierId}/documents`);
+        setDocuments(docs);
+      } else {
+        const prots = await apiFetch<Protocol[]>(`/dossiers/${dossierId}/protocols`);
+        setProtocols(prots);
+      }
+    } catch (e) {
+      toast({ title: "Errore", description: String(e), variant: "destructive" });
+    } finally {
+      setLoadingTab(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = await apiFetch<Dossier>(`/dossiers/${dossierId}`, {
+        method: "PATCH",
+        body: JSON.stringify(editForm),
+      });
+      setDossier(updated);
+      setEditing(false);
+      toast({ title: "Fascicolo aggiornato" });
+    } catch (e) {
+      toast({ title: "Errore", description: String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Guards ────────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (notFound || !dossier) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3">
+        <FolderOpen className="w-12 h-12 text-muted-foreground/30" />
+        <p className="text-muted-foreground">Fascicolo non trovato</p>
+        <Button variant="outline" size="sm" onClick={() => navigate("/dossiers")}>
+          <ArrowLeft className="w-4 h-4 mr-1.5" />Torna ai fascicoli
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-5xl mx-auto px-6 py-5 space-y-5">
+
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-sm">
+          <Link href="/dossiers" className="text-muted-foreground hover:text-foreground transition-colors">Fascicoli</Link>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-medium font-mono text-xs">{dossier.code}</span>
+        </div>
+
+        {/* Header card */}
+        <div className="bg-card border border-border rounded-lg p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <FolderOpen className="w-5 h-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                {editing ? (
+                  <input
+                    className="w-full border border-border rounded-md px-3 py-1.5 text-base font-semibold bg-background mb-1"
+                    value={editForm.title}
+                    onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                  />
+                ) : (
+                  <h1 className="text-lg font-semibold text-foreground">{dossier.title}</h1>
+                )}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{dossier.code}</span>
+                  {editing ? (
+                    <select
+                      className="border border-border rounded px-2 py-0.5 text-xs bg-background"
+                      value={editForm.status}
+                      onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                    >
+                      <option value="open">Aperto</option>
+                      <option value="closed">Chiuso</option>
+                      <option value="archived">Archiviato</option>
+                    </select>
+                  ) : (
+                    <StatusBadge status={dossier.status} />
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {editing ? (
+                <>
+                  <Button size="sm" onClick={handleSave} disabled={saving}>
+                    {saving ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+                    Salva
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                  <Edit2 className="w-3.5 h-3.5 mr-1.5" />Modifica
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Description */}
+          {editing ? (
+            <textarea
+              className="w-full mt-3 border border-border rounded-md px-3 py-2 text-sm bg-background resize-none"
+              rows={2}
+              value={editForm.description}
+              onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Descrizione del fascicolo"
+            />
+          ) : dossier.description ? (
+            <p className="mt-3 text-sm text-muted-foreground">{dossier.description}</p>
+          ) : null}
+
+          {/* Meta grid */}
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-border">
+            <div className="flex items-start gap-2">
+              <User className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-xs text-muted-foreground">Responsabile</div>
+                <div className="text-xs font-medium">{dossier.responsibleName ?? "—"}</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Tag className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-xs text-muted-foreground">Area</div>
+                {editing ? (
+                  <input
+                    className="border border-border rounded px-1.5 py-0.5 text-xs bg-background w-full"
+                    value={editForm.area}
+                    onChange={e => setEditForm(f => ({ ...f, area: e.target.value }))}
+                    placeholder="Area"
+                  />
+                ) : (
+                  <div className="text-xs font-medium">{dossier.area ?? "—"}</div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Lock className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-xs text-muted-foreground">Riservatezza</div>
+                {editing ? (
+                  <select
+                    className="border border-border rounded px-1.5 py-0.5 text-xs bg-background"
+                    value={editForm.confidentiality}
+                    onChange={e => setEditForm(f => ({ ...f, confidentiality: e.target.value }))}
+                  >
+                    <option value="normal">Normale</option>
+                    <option value="reserved">Riservato</option>
+                    <option value="secret">Segreto</option>
+                  </select>
+                ) : (
+                  <div className="text-xs font-medium">{CONFIDENTIALITY_LABELS[dossier.confidentiality] ?? dossier.confidentiality}</div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-xs text-muted-foreground">Aperto il</div>
+                <div className="text-xs font-medium">{fmtDate(dossier.openedAt)}</div>
+                {dossier.closedAt && (
+                  <div className="text-xs text-muted-foreground">Chiuso: {fmtDate(dossier.closedAt)}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => loadTab("documents")}
+            className={`bg-card border rounded-lg p-4 text-left transition-colors ${tab === "documents" ? "border-primary" : "border-border hover:border-primary/40"}`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Documenti</span>
+            </div>
+            <div className="text-2xl font-bold text-foreground">{dossier.documentCount}</div>
+          </button>
+          <button
+            onClick={() => loadTab("protocols")}
+            className={`bg-card border rounded-lg p-4 text-left transition-colors ${tab === "protocols" ? "border-primary" : "border-border hover:border-primary/40"}`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Files className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Protocolli</span>
+            </div>
+            <div className="text-2xl font-bold text-foreground">{dossier.protocolCount}</div>
+          </button>
+        </div>
+
+        {/* Tab content */}
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          {/* Tab header */}
+          <div className="flex border-b border-border">
+            {([["documents", "Documenti", FileText], ["protocols", "Protocolli", Files]] as const).map(([t, label, Icon]) => (
+              <button
+                key={t}
+                onClick={() => loadTab(t)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Documents tab */}
+          {tab === "documents" && (
+            loadingTab ? (
+              <div className="p-8 text-center"><RefreshCw className="w-4 h-4 animate-spin text-muted-foreground mx-auto" /></div>
+            ) : documents.length === 0 ? (
+              <div className="p-8 text-center">
+                <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Nessun documento in questo fascicolo</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/40 border-b border-border">
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Titolo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stato</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Versione</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Creato da</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.map(doc => (
+                    <tr key={doc.id} className="border-t border-border/50 hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-2.5">
+                        <Link href={`/documents/${doc.id}`} className="font-medium text-foreground hover:text-primary transition-colors line-clamp-1">
+                          {doc.title}
+                        </Link>
+                        <div className="text-xs text-muted-foreground line-clamp-1">{doc.subject}</div>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground capitalize">{doc.type}</td>
+                      <td className="px-4 py-2.5"><StatusBadge status={doc.status} /></td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">v{doc.version}</td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{doc.createdByName}</td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{fmtDate(doc.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+
+          {/* Protocols tab */}
+          {tab === "protocols" && (
+            loadingTab ? (
+              <div className="p-8 text-center"><RefreshCw className="w-4 h-4 animate-spin text-muted-foreground mx-auto" /></div>
+            ) : protocols.length === 0 ? (
+              <div className="p-8 text-center">
+                <Files className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Nessun protocollo associato a questo fascicolo</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/40 border-b border-border">
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Numero</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Oggetto</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Mitt./Dest.</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stato</th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Data reg.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {protocols.map(p => (
+                    <tr key={p.id} className="border-t border-border/50 hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-2.5">
+                        <Link href={`/protocols/${p.id}`} className="font-mono text-xs font-medium text-foreground hover:text-primary transition-colors">
+                          {p.number}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <StatusBadge status={p.type} />
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-xs">
+                        <span className="line-clamp-1" title={p.subject}>{p.subject}</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{p.sender ?? "—"}</td>
+                      <td className="px-4 py-2.5"><StatusBadge status={p.status} /></td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground">{fmtDate(p.registeredAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

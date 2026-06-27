@@ -84,6 +84,26 @@ router.get("/dossiers/:id/documents", async (req, res): Promise<void> => {
   res.json(docs.map((doc) => fmtDoc(doc, userMap)));
 });
 
+router.get("/dossiers/:id/protocols", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const rows = await db.select().from(protocolsTable).where(eq(protocolsTable.dossierId, id));
+  const userMap = await getUserMap();
+  res.json(rows.map((p) => ({
+    id: p.id,
+    number: p.number,
+    type: p.type,
+    status: p.status,
+    subject: p.subject,
+    sender: p.sender,
+    recipients: p.recipients,
+    priority: p.priority,
+    confidentiality: p.confidentiality,
+    registeredAt: p.registeredAt?.toISOString() ?? null,
+    registeredById: p.registeredById,
+    createdByName: userMap[p.registeredById]?.name ?? "Unknown",
+  })));
+});
+
 async function getUserMap() {
   const users = await db.select().from(usersTable);
   return Object.fromEntries(users.map((u) => [u.id, u]));

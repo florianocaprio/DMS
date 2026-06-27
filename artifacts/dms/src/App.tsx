@@ -17,6 +17,7 @@ import ClassificationsPage from "@/pages/admin/classifications";
 import SettingsPage from "@/pages/admin/settings";
 import AuditLogPage from "@/pages/admin/audit-log";
 import ImportPage from "@/pages/admin/import";
+import DossierDetail from "@/pages/dossiers/detail";
 import IntegrityPage from "@/pages/admin/integrity";
 
 const queryClient = new QueryClient({
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/protocols" component={ProtocolsPage} />
         <Route path="/documents" component={DocumentsPage} />
         <Route path="/dossiers" component={DossiersPage} />
+        <Route path="/dossiers/:id">{(params) => <DossierDetail id={params.id} />}</Route>
         <Route path="/tasks" component={TasksPage} />
         <Route path="/workflows" component={WorkflowsPage} />
         <Route path="/signatures" component={SignaturesPage} />
