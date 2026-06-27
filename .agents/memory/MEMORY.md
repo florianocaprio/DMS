@@ -2,3 +2,4 @@
 - [Drizzle onConflict empty set](drizzle-onconflict-empty-set.md) — onConflictDoUpdate with `set: {}` crashes "No values to set"; use onConflictDoNothing for the no-op branch.
 - [Duplicate artifact workflows](duplicate-artifact-workflows.md) — artifact-managed `artifacts/<dir>: <name>` workflows can collide on ports with hand-made ones; keep only the artifact-managed set.
 - [Vitest workspace setup](vitest-workspace-setup.md) — api-server tests need `deps.inline: [/@workspace\//]` (raw-TS exports); supertest the exported `app` (cron/listen live in index.ts), real Postgres, clean up rows.
+- [Clerk auth + current-user replacement](clerk-auth-current-user.md) — Google SSO domain-locked; replacing hardcoded current user must grep named constants (CURRENT_USER_ID) too, not just `1`; @clerk/react legacy entrypoint for authenticateWithRedirect.

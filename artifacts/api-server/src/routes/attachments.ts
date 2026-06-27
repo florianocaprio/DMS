@@ -72,12 +72,12 @@ router.post("/attachments", async (req: Request, res: Response) => {
       documentId: documentId ?? null,
       protocolId: protocolId ?? null,
       dossierId: dossierId ?? null,
-      uploadedById: 1,
+      uploadedById: req.currentUserId!,
     }).returning();
 
     res.status(201).json(created);
 
-    await logAttachmentActivity("file_added", `File "${originalName}" caricato`, documentId, protocolId);
+    await logAttachmentActivity("file_added", `File "${originalName}" caricato`, req.currentUserId!, documentId, protocolId);
 
     // Async Drive sync — does not block the HTTP response
     syncToDrive(created.id, objectPath, originalName, mimeType, req.log, protocolId).catch(() => {});
@@ -96,11 +96,11 @@ router.delete("/attachments/:id", async (req: Request, res: Response) => {
 
     // Soft delete: keep the record as evidence of who removed the file and when.
     await db.update(fileAttachmentsTable)
-      .set({ removedAt: new Date(), removedById: 1 })
+      .set({ removedAt: new Date(), removedById: req.currentUserId! })
       .where(eq(fileAttachmentsTable.id, id));
     res.status(204).end();
 
-    await logAttachmentActivity("file_removed", `File "${row.originalName}" rimosso`, row.documentId ?? undefined, row.protocolId ?? undefined);
+    await logAttachmentActivity("file_removed", `File "${row.originalName}" rimosso`, req.currentUserId!, row.documentId ?? undefined, row.protocolId ?? undefined);
 
     if (row.driveFileId) deleteFileFromDrive(row.driveFileId).catch(() => {});
     if (row.protocolId)  regenerateProtocolXml(row.protocolId, req.log).catch(() => {});
@@ -110,11 +110,11 @@ router.delete("/attachments/:id", async (req: Request, res: Response) => {
   }
 });
 
-async function logAttachmentActivity(type: string, description: string, documentId?: number, protocolId?: number) {
+async function logAttachmentActivity(type: string, description: string, userId: number, documentId?: number, protocolId?: number) {
   await db.insert(activityLogTable).values({
     type,
     description,
-    userId: 1,
+    userId,
     documentId: documentId ?? null,
     protocolId: protocolId ?? null,
   });

@@ -13,8 +13,6 @@ import { eq, and, desc } from "drizzle-orm";
 
 const router = Router();
 
-const CURRENT_USER_ID = 1;
-
 // ─── Rules CRUD ──────────────────────────────────────────────────────────────
 
 router.get("/dossiers/:id/workflow-rules", async (req, res): Promise<void> => {
@@ -95,7 +93,7 @@ router.get("/workflow-instances", async (req, res): Promise<void> => {
     formatted = formatted.filter(
       (inst) =>
         inst.status === "pending" &&
-        inst.participants.some((p) => p.userId === CURRENT_USER_ID && p.status === "pending"),
+        inst.participants.some((p) => p.userId === req.currentUserId && p.status === "pending"),
     );
   }
   res.json(formatted);
@@ -122,7 +120,7 @@ router.post("/workflow-instances/:id/act", async (req, res): Promise<void> => {
   }
 
   const parts = (inst.participants as InstanceParticipant[]) || [];
-  const me = parts.find((p) => p.userId === CURRENT_USER_ID && p.status === "pending");
+  const me = parts.find((p) => p.userId === req.currentUserId && p.status === "pending");
   if (!me) {
     res.status(400).json({ error: "Nessuna azione in attesa per l'utente corrente" });
     return;

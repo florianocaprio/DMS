@@ -15,7 +15,9 @@ import {
   ClipboardList,
   Upload,
   ShieldCheck,
+  LogOut,
 } from "lucide-react";
+import { useClerk } from "@clerk/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetCurrentUser } from "@workspace/api-client-react";
 
@@ -48,6 +50,8 @@ const ROLE_LABELS: Record<string, string> = {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: user } = useGetCurrentUser();
+  const { signOut } = useClerk();
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -113,7 +117,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-3 border-t border-border">
-          <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer">
+          <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-md">
             <Avatar className="h-7 w-7">
               <AvatarImage src={user?.avatarUrl ?? undefined} />
               <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
@@ -124,7 +128,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="text-xs font-semibold text-foreground truncate">{user?.name ?? "Utente"}</div>
               <div className="text-xs text-muted-foreground truncate">{ROLE_LABELS[user?.role ?? ""] ?? user?.role ?? "—"}</div>
             </div>
-            <Settings className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <button
+              type="button"
+              onClick={() => signOut({ redirectUrl: basePath || "/" })}
+              title="Esci"
+              aria-label="Esci"
+              className="p-1.5 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors flex-shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </aside>

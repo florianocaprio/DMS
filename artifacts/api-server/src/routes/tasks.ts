@@ -13,7 +13,7 @@ router.get("/tasks", async (req, res): Promise<void> => {
 
   let rows = await db.select().from(tasksTable).orderBy(desc(tasksTable.createdAt));
   if (status) rows = rows.filter((t) => t.status === status);
-  if (assignedToMe === "true") rows = rows.filter((t) => t.assignedToId === 1);
+  if (assignedToMe === "true") rows = rows.filter((t) => t.assignedToId === req.currentUserId);
   if (protocolId) rows = rows.filter((t) => t.protocolId === Number(protocolId));
   if (dossierId) rows = rows.filter((t) => t.dossierId === Number(dossierId));
   if (priority) rows = rows.filter((t) => t.priority === priority);
@@ -54,7 +54,7 @@ router.post("/tasks", async (req, res): Promise<void> => {
     title, description, priority: priority || "normal",
     protocolId: protocolId || null, documentId: documentId || null,
     dossierId: dossierId || null, assignedToId: assignedToId || null,
-    createdById: 1, dueDate: dueDate || null, notes,
+    createdById: req.currentUserId!, dueDate: dueDate || null, notes,
   }).returning();
   const ctx = await getContext();
   res.status(201).json(fmtTask(t, ctx));

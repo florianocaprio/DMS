@@ -13,7 +13,7 @@ router.get("/signatures", async (req, res): Promise<void> => {
   if (pendingForMe === "true") {
     rows = rows.filter((s) => {
       const sigs = (s.signatories as Array<{ userId: number; status: string }>) || [];
-      return sigs.some((sg) => sg.userId === 1 && sg.status === "pending");
+      return sigs.some((sg) => sg.userId === req.currentUserId && sg.status === "pending");
     });
   }
   const userMap = Object.fromEntries((await db.select().from(usersTable)).map((u) => [u.id, u]));
@@ -32,7 +32,7 @@ router.post("/signatures", async (req, res): Promise<void> => {
   }));
   const [sr] = await db.insert(signatureRequestsTable).values({
     documentId, type: type || "internal", signatories: sigs,
-    requestedById: 1, note,
+    requestedById: req.currentUserId!, note,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
   }).returning();
   const userMap = Object.fromEntries((await db.select().from(usersTable)).map((u) => [u.id, u]));
@@ -47,7 +47,7 @@ router.post("/signatures/:id/sign", async (req, res): Promise<void> => {
   if (!sr) { res.status(404).json({ error: "Not found" }); return; }
 
   const sigs = (sr.signatories as Array<{ userId: number; order: number; status: string; signedAt: string | null; note: string | null }>) || [];
-  const pending = sigs.find((s) => s.userId === 1 && s.status === "pending");
+  const pending = sigs.find((s) => s.userId === req.currentUserId && s.status === "pending");
   if (pending) {
     pending.status = action === "sign" ? "signed" : "rejected";
     pending.signedAt = new Date().toISOString();

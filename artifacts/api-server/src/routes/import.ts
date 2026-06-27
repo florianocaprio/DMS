@@ -338,7 +338,7 @@ router.post("/admin/import/execute", async (req, res) => {
           recipients: protocol.recipients,
           ccRecipients: protocol.ccRecipients,
           notes: protocol.note,
-          registeredById: 1,
+          registeredById: req.currentUserId!,
           registeredAt: protocol.date,
           confidentiality: "normal",
           priority: "normal",

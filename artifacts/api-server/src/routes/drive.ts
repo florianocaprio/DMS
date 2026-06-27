@@ -105,7 +105,7 @@ router.post("/admin/drive/recover", async (req: Request, res: Response) => {
         const protocolFolders = await listSubfolders(mese.id);
         for (const protoFolder of protocolFolders) {
           report.scannedFolders++;
-          const entry = await recoverProtocolFolder(protoFolder, dry, req.log);
+          const entry = await recoverProtocolFolder(protoFolder, dry, req.log, req.currentUserId!);
           report.protocols.push(entry);
           if (entry.status === "inserted") report.inserted++;
           else if (entry.status === "skipped") report.skipped++;
@@ -127,6 +127,7 @@ async function recoverProtocolFolder(
   folder: { id: string; name: string },
   dry: boolean,
   log: Request["log"],
+  currentUserId: number,
 ): Promise<RecoveryEntry> {
   const entry: RecoveryEntry = { folderName: folder.name, folderId: folder.id, status: "failed" };
 
@@ -181,8 +182,9 @@ async function recoverProtocolFolder(
       return entry;
     }
 
-    // Resolve registeredById: try to find user by email, else fall back to 1
-    let registeredById = 1;
+    // Resolve registeredById: try to find user by email, else fall back to the
+    // current authenticated user performing the recovery.
+    let registeredById = currentUserId;
     if (proto.registeredByEmail) {
       const [u] = await db.select({ id: usersTable.id }).from(usersTable)
         .where(eq(usersTable.email, proto.registeredByEmail));
@@ -220,7 +222,7 @@ async function recoverProtocolFolder(
         mimeType:     att.mimeType,
         fileSize:     att.fileSize || 0,
         protocolId:   newProtocolId,
-        uploadedById: 1,
+        uploadedById: currentUserId,
         driveFileId:  att.driveFileId ?? null,
         driveViewLink: att.driveViewLink ?? null,
       }).onConflictDoNothing();
@@ -231,7 +233,7 @@ async function recoverProtocolFolder(
       await db.insert(activityLogTable).values({
         type:        ev.type,
         description: ev.description,
-        userId:      1,
+        userId:      currentUserId,
         protocolId:  newProtocolId,
         createdAt:   ev.createdAt ?? new Date(),
       }).onConflictDoNothing();

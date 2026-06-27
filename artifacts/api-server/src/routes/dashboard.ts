@@ -37,8 +37,8 @@ router.get("/dashboard/stats", async (_req, res): Promise<void> => {
   });
 });
 
-router.get("/dashboard/my-items", async (_req, res): Promise<void> => {
-  const myId = 1;
+router.get("/dashboard/my-items", async (req, res): Promise<void> => {
+  const myId = req.currentUserId!;
   const [documents, tasks, docWorkflows, signatures] = await Promise.all([
     db.select().from(documentsTable).where(eq(documentsTable.responsibleId, myId)).limit(5),
     db.select().from(tasksTable).where(eq(tasksTable.assignedToId, myId)).limit(5),

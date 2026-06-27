@@ -14,7 +14,7 @@ router.get("/users", async (req, res): Promise<void> => {
 });
 
 router.get("/users/me", async (req, res): Promise<void> => {
-  const user = await db.select().from(usersTable).where(eq(usersTable.id, 1)).limit(1);
+  const user = await db.select().from(usersTable).where(eq(usersTable.id, req.currentUserId!)).limit(1);
   if (!user[0]) { res.status(404).json({ error: "Not found" }); return; }
   res.json(formatUser(user[0]));
 });

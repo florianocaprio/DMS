@@ -128,7 +128,7 @@ export function auditLogMiddleware(req: Request, res: Response, next: NextFuncti
       action,
       entityType: entityType ?? undefined,
       entityId: entityId ?? undefined,
-      userId: 1, // TODO: replace with actual session user when auth is added
+      userId: req.currentUserId ?? null,
       method: req.method,
       path: rawPath,
       statusCode: res.statusCode,

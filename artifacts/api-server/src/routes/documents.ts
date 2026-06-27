@@ -28,7 +28,7 @@ router.get("/documents", async (req, res): Promise<void> => {
   if (type) rows = rows.filter((d) => d.type === type);
   if (dossierId) rows = rows.filter((d) => d.dossierId === Number(dossierId));
   if (dossierIdSet) rows = rows.filter((d) => d.dossierId !== null && dossierIdSet.has(d.dossierId));
-  if (assignedToMe === "true") rows = rows.filter((d) => d.responsibleId === 1);
+  if (assignedToMe === "true") rows = rows.filter((d) => d.responsibleId === req.currentUserId);
 
   const total = rows.length;
   const page_items = rows.slice(offset, offset + lm);
@@ -55,7 +55,7 @@ router.post("/documents", async (req, res): Promise<void> => {
     dossierId: dossierId || null,
     classificationId: classificationId || null,
     responsibleId: responsibleId || null,
-    createdById: 1,
+    createdById: req.currentUserId!,
     tags: tags || [],
     driveUrl, fileName,
   }).returning();

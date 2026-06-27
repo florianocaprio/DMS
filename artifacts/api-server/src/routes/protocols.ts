@@ -40,7 +40,7 @@ router.get("/protocols", async (req, res): Promise<void> => {
     const ids = new Set(memberships.map((m) => m.protocolId));
     rows = rows.filter((p) => ids.has(p.id));
   }
-  if (assignedToMe === "true") rows = rows.filter((p) => p.assignedToId === 1);
+  if (assignedToMe === "true") rows = rows.filter((p) => p.assignedToId === req.currentUserId);
 
   const total = rows.length;
   const page_items = rows.slice(offset, offset + lm);
@@ -111,16 +111,16 @@ router.post("/protocols", async (req, res): Promise<void> => {
     priority: priority || "normal",
     dossierId: primary, classificationId: classificationId || null,
     documentId: documentId || null, assignedToId: assignedToId || null,
-    registeredById: 1, notes,
+    registeredById: req.currentUserId!, notes,
   }).returning();
 
   if (memberIds.length > 0) {
     await db.insert(protocolDossiersTable).values(
-      memberIds.map((dId) => ({ protocolId: p.id, dossierId: dId, isPrimary: dId === primary, addedById: 1 })),
+      memberIds.map((dId) => ({ protocolId: p.id, dossierId: dId, isPrimary: dId === primary, addedById: req.currentUserId! })),
     ).onConflictDoNothing();
     const dossierMap = await getDossierMap();
     for (const dId of memberIds) {
-      await logActivity(p.id, "protocol_filed", `Protocollo ${p.number} archiviato nel fascicolo ${dossierMap[dId]?.code ?? dId}${dId === primary ? " (primario)" : ""}`);
+      await logActivity(p.id, "protocol_filed", `Protocollo ${p.number} archiviato nel fascicolo ${dossierMap[dId]?.code ?? dId}${dId === primary ? " (primario)" : ""}`, req.currentUserId!);
       await triggerDossierWorkflows(dId, "protocol", p.id);
     }
   }
@@ -158,7 +158,7 @@ router.patch("/protocols/:id", async (req, res): Promise<void> => {
       await tx.update(protocolDossiersTable).set({ isPrimary: false }).where(eq(protocolDossiersTable.protocolId, id));
       if (newPrimary != null) {
         await tx.insert(protocolDossiersTable)
-          .values({ protocolId: id, dossierId: newPrimary, isPrimary: true, addedById: 1 })
+          .values({ protocolId: id, dossierId: newPrimary, isPrimary: true, addedById: req.currentUserId! })
           .onConflictDoUpdate({ target: [protocolDossiersTable.protocolId, protocolDossiersTable.dossierId], set: { isPrimary: true } });
       }
     }
@@ -230,18 +230,18 @@ router.post("/protocols/:id/dossiers", async (req, res): Promise<void> => {
     if (makePrimary) {
       await tx.update(protocolDossiersTable).set({ isPrimary: false }).where(eq(protocolDossiersTable.protocolId, id));
       await tx.insert(protocolDossiersTable)
-        .values({ protocolId: id, dossierId: did, isPrimary: true, addedById: 1 })
+        .values({ protocolId: id, dossierId: did, isPrimary: true, addedById: req.currentUserId! })
         .onConflictDoUpdate({ target: [protocolDossiersTable.protocolId, protocolDossiersTable.dossierId], set: { isPrimary: true } });
       await tx.update(protocolsTable).set({ dossierId: did }).where(eq(protocolsTable.id, id));
     } else {
       await tx.insert(protocolDossiersTable)
-        .values({ protocolId: id, dossierId: did, isPrimary: false, addedById: 1 })
+        .values({ protocolId: id, dossierId: did, isPrimary: false, addedById: req.currentUserId! })
         .onConflictDoNothing({ target: [protocolDossiersTable.protocolId, protocolDossiersTable.dossierId] });
     }
   });
 
   const isNowPrimary = isPrimary === true || !p.dossierId;
-  await logActivity(id, "protocol_filed", `Protocollo ${p.number} archiviato nel fascicolo ${dossier.code}${isNowPrimary ? " (primario)" : ""}`);
+  await logActivity(id, "protocol_filed", `Protocollo ${p.number} archiviato nel fascicolo ${dossier.code}${isNowPrimary ? " (primario)" : ""}`, req.currentUserId!);
   await triggerDossierWorkflows(Number(dossierId), "protocol", id);
 
   res.status(201).json({ ok: true });
@@ -282,13 +282,13 @@ router.delete("/protocols/:id/dossiers/:dossierId", async (req, res): Promise<vo
   if (!removed) { res.status(404).json({ error: "Associazione non trovata" }); return; }
 
   const dossierMap = await getDossierMap();
-  await logActivity(id, "protocol_unfiled", `Protocollo ${p.number} rimosso dal fascicolo ${dossierMap[dossierId]?.code ?? dossierId}`);
+  await logActivity(id, "protocol_unfiled", `Protocollo ${p.number} rimosso dal fascicolo ${dossierMap[dossierId]?.code ?? dossierId}`, req.currentUserId!);
 
   res.status(204).end();
 });
 
-async function logActivity(protocolId: number, type: string, description: string) {
-  await db.insert(activityLogTable).values({ type, description, userId: 1, protocolId });
+async function logActivity(protocolId: number, type: string, description: string, userId: number) {
+  await db.insert(activityLogTable).values({ type, description, userId, protocolId });
 }
 
 async function getUserMap() {
