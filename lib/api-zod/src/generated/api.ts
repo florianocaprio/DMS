@@ -987,6 +987,7 @@ export const ListDossiersQueryParams = zod.object({
 
 export const listDossiersResponseItemsItemConfidentialityDefault = `normal`;
 export const listDossiersResponseItemsItemIsDefaultDefault = false;
+export const listDossiersResponseItemsItemDepthDefault = 0;
 export const listDossiersResponseItemsItemChildCountDefault = 0;
 export const listDossiersResponseItemsItemDocumentCountDefault = 0;
 export const listDossiersResponseItemsItemProtocolCountDefault = 0;
@@ -1005,6 +1006,7 @@ export const ListDossiersResponse = zod.object({
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
+  "depth": zod.number().default(listDossiersResponseItemsItemDepthDefault).describe('Nesting depth (0 = top-level fascicolo; sub-fascicoli increase by 1 per level).'),
   "childCount": zod.number().default(listDossiersResponseItemsItemChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
@@ -1041,6 +1043,7 @@ export const CreateDossierBody = zod.object({
 
 export const createDossierResponseConfidentialityDefault = `normal`;
 export const createDossierResponseIsDefaultDefault = false;
+export const createDossierResponseDepthDefault = 0;
 export const createDossierResponseChildCountDefault = 0;
 export const createDossierResponseDocumentCountDefault = 0;
 export const createDossierResponseProtocolCountDefault = 0;
@@ -1058,6 +1061,7 @@ export const CreateDossierResponse = zod.object({
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
+  "depth": zod.number().default(createDossierResponseDepthDefault).describe('Nesting depth (0 = top-level fascicolo; sub-fascicoli increase by 1 per level).'),
   "childCount": zod.number().default(createDossierResponseChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
@@ -1081,6 +1085,7 @@ export const GetDossierParams = zod.object({
 
 export const getDossierResponseConfidentialityDefault = `normal`;
 export const getDossierResponseIsDefaultDefault = false;
+export const getDossierResponseDepthDefault = 0;
 export const getDossierResponseChildCountDefault = 0;
 export const getDossierResponseDocumentCountDefault = 0;
 export const getDossierResponseProtocolCountDefault = 0;
@@ -1098,6 +1103,7 @@ export const GetDossierResponse = zod.object({
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
+  "depth": zod.number().default(getDossierResponseDepthDefault).describe('Nesting depth (0 = top-level fascicolo; sub-fascicoli increase by 1 per level).'),
   "childCount": zod.number().default(getDossierResponseChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
@@ -1133,6 +1139,7 @@ export const UpdateDossierBody = zod.object({
 
 export const updateDossierResponseConfidentialityDefault = `normal`;
 export const updateDossierResponseIsDefaultDefault = false;
+export const updateDossierResponseDepthDefault = 0;
 export const updateDossierResponseChildCountDefault = 0;
 export const updateDossierResponseDocumentCountDefault = 0;
 export const updateDossierResponseProtocolCountDefault = 0;
@@ -1150,6 +1157,7 @@ export const UpdateDossierResponse = zod.object({
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
+  "depth": zod.number().default(updateDossierResponseDepthDefault).describe('Nesting depth (0 = top-level fascicolo; sub-fascicoli increase by 1 per level).'),
   "childCount": zod.number().default(updateDossierResponseChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
@@ -1262,6 +1270,7 @@ export const GetDossierChildrenParams = zod.object({
 
 export const getDossierChildrenResponseConfidentialityDefault = `normal`;
 export const getDossierChildrenResponseIsDefaultDefault = false;
+export const getDossierChildrenResponseDepthDefault = 0;
 export const getDossierChildrenResponseChildCountDefault = 0;
 export const getDossierChildrenResponseDocumentCountDefault = 0;
 export const getDossierChildrenResponseProtocolCountDefault = 0;
@@ -1279,6 +1288,7 @@ export const GetDossierChildrenResponseItem = zod.object({
   "parentId": zod.number().nullish(),
   "parentCode": zod.string().nullish(),
   "parentTitle": zod.string().nullish(),
+  "depth": zod.number().default(getDossierChildrenResponseDepthDefault).describe('Nesting depth (0 = top-level fascicolo; sub-fascicoli increase by 1 per level).'),
   "childCount": zod.number().default(getDossierChildrenResponseChildCountDefault),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),

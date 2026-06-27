@@ -393,6 +393,8 @@ export interface Dossier {
   parentCode?: string | null;
   /** @nullable */
   parentTitle?: string | null;
+  /** Nesting depth (0 = top-level fascicolo; sub-fascicoli increase by 1 per level). */
+  depth?: number;
   childCount?: number;
   /** @nullable */
   responsibleId?: number | null;

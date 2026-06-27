@@ -2033,6 +2033,10 @@ components:
           type: ["string", "null"]
         parentTitle:
           type: ["string", "null"]
+        depth:
+          type: integer
+          default: 0
+          description: Nesting depth (0 = top-level fascicolo; sub-fascicoli increase by 1 per level).
         childCount:
           type: integer
           default: 0

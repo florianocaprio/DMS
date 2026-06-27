@@ -6,6 +6,45 @@ import { getEffectiveMemberships, getEffectiveDocumentMemberships } from "../lib
 
 const router = Router();
 
+// Maximum number of nested sub-fascicolo levels below a top-level fascicolo.
+// Top-level dossiers have depth 0; sub-fascicoli may nest up to this depth.
+const MAX_SUB_LEVELS = 4;
+
+/** Loads the full parent/children relations once for hierarchy checks. */
+async function loadHierarchy(): Promise<{
+  parentOf: Record<number, number | null>;
+  childrenOf: Record<number, number[]>;
+}> {
+  const all = await db.select({ id: dossiersTable.id, parentId: dossiersTable.parentId }).from(dossiersTable);
+  const parentOf: Record<number, number | null> = {};
+  const childrenOf: Record<number, number[]> = {};
+  for (const d of all) {
+    parentOf[d.id] = d.parentId;
+    if (d.parentId != null) (childrenOf[d.parentId] ??= []).push(d.id);
+  }
+  return { parentOf, childrenOf };
+}
+
+/** Depth of a dossier (0 = top-level), walking up the parent chain. */
+function depthOf(parentOf: Record<number, number | null>, id: number): number {
+  let depth = 0;
+  let cur: number | null | undefined = parentOf[id];
+  const seen = new Set<number>();
+  while (cur != null && !seen.has(cur)) {
+    seen.add(cur);
+    depth++;
+    cur = parentOf[cur];
+  }
+  return depth;
+}
+
+/** Height of the subtree rooted at id (0 = no children). */
+function heightOf(childrenOf: Record<number, number[]>, id: number): number {
+  const kids = childrenOf[id] ?? [];
+  if (kids.length === 0) return 0;
+  return 1 + Math.max(...kids.map((k) => heightOf(childrenOf, k)));
+}
+
 router.get("/dossiers", async (req, res): Promise<void> => {
   const { status, responsibleId, parentId, topLevel, page = "1", limit = "20" } = req.query;
   const pg = Number(page);
@@ -60,13 +99,22 @@ router.post("/dossiers", async (req, res): Promise<void> => {
     const [parent] = await db.select({ id: dossiersTable.id }).from(dossiersTable).where(eq(dossiersTable.id, Number(parentId))).limit(1);
     if (parent) validParentId = parent.id;
   }
+  if (validParentId != null) {
+    const { parentOf } = await loadHierarchy();
+    // New child's sub-level = parent depth + 1; must not exceed MAX_SUB_LEVELS.
+    if (depthOf(parentOf, validParentId) + 1 > MAX_SUB_LEVELS) {
+      res.status(400).json({ error: `Limite di ${MAX_SUB_LEVELS} livelli di sotto-fascicoli raggiunto` });
+      return;
+    }
+  }
   const [d] = await db.insert(dossiersTable).values({
     title, description, area, confidentiality: confidentiality || "normal",
     responsibleId: responsibleId || null, classificationId: classificationId || null,
     parentId: validParentId,
     year, code,
   }).returning();
-  res.status(201).json(fmtDossier(d, {}, {}, {}, {}, {}, {}));
+  const parentMap = await getDossierMap();
+  res.status(201).json(fmtDossier(d, {}, {}, {}, {}, parentMap, {}));
 });
 
 router.patch("/dossiers/:id", async (req, res): Promise<void> => {
@@ -86,12 +134,20 @@ router.patch("/dossiers/:id", async (req, res): Promise<void> => {
     if (newParent != null) {
       if (newParent === id) { res.status(400).json({ error: "Un fascicolo non può essere padre di se stesso" }); return; }
       if (await wouldCreateCycle(id, newParent)) { res.status(400).json({ error: "Gerarchia non valida: ciclo rilevato" }); return; }
+      const { parentOf, childrenOf } = await loadHierarchy();
+      // New depth of this node + the height of its subtree must stay within limit.
+      const newDepth = depthOf(parentOf, newParent) + 1;
+      if (newDepth + heightOf(childrenOf, id) > MAX_SUB_LEVELS) {
+        res.status(400).json({ error: `Limite di ${MAX_SUB_LEVELS} livelli di sotto-fascicoli raggiunto` });
+        return;
+      }
     }
     updates.parentId = newParent;
   }
   const [d] = await db.update(dossiersTable).set(updates).where(eq(dossiersTable.id, id)).returning();
   if (!d) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(fmtDossier(d, {}, {}, {}, {}, {}, {}));
+  const parentMap = await getDossierMap();
+  res.json(fmtDossier(d, {}, {}, {}, {}, parentMap, {}));
 });
 
 router.get("/dossiers/:id/children", async (req, res): Promise<void> => {
@@ -102,7 +158,8 @@ router.get("/dossiers/:id/children", async (req, res): Promise<void> => {
   const docCountMap = await getDocCountMap();
   const protCountMap = await getProtCountMap();
   const childCountMap = await getChildCountMap();
-  res.json(rows.map((d) => fmtDossier(d, userMap, classMap, docCountMap, protCountMap, {}, childCountMap)));
+  const parentMap = await getDossierMap();
+  res.json(rows.map((d) => fmtDossier(d, userMap, classMap, docCountMap, protCountMap, parentMap, childCountMap)));
 });
 
 router.get("/dossiers/:id/documents", async (req, res): Promise<void> => {
@@ -193,9 +250,21 @@ function fmtDossier(
   classMap: Record<number, { code: string }>,
   docCountMap: Record<number, number>,
   protCountMap: Record<number, number>,
-  parentMap: Record<number, { code: string; title: string }>,
+  parentMap: Record<number, { code: string; title: string; parentId?: number | null }>,
   childCountMap: Record<number, number>,
 ) {
+  // Depth from the parent chain (0 = top-level). Only computable when parentMap
+  // carries full rows (list/detail/children endpoints); otherwise defaults to 0.
+  let depth = 0;
+  {
+    let cur: number | null | undefined = d.parentId;
+    const seen = new Set<number>();
+    while (cur != null && parentMap[cur] && !seen.has(cur)) {
+      seen.add(cur);
+      depth++;
+      cur = parentMap[cur].parentId ?? null;
+    }
+  }
   return {
     id: d.id,
     code: d.code,
@@ -209,6 +278,7 @@ function fmtDossier(
     parentId: d.parentId,
     parentCode: d.parentId ? (parentMap[d.parentId]?.code ?? null) : null,
     parentTitle: d.parentId ? (parentMap[d.parentId]?.title ?? null) : null,
+    depth,
     childCount: childCountMap[d.id] ?? 0,
     responsibleId: d.responsibleId,
     responsibleName: d.responsibleId ? (userMap[d.responsibleId]?.name ?? null) : null,
