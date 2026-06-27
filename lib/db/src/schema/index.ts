@@ -10,3 +10,6 @@ export * from "./assignments";
 export * from "./attachments";
 export * from "./settings";
 export * from "./auditLog";
+export * from "./protocolIntegrity";
+export * from "./integritySchedules";
+export * from "./integrityCheckLog";

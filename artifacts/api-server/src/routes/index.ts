@@ -16,6 +16,7 @@ import searchRouter from "./search";
 import driveRouter from "./drive";
 import auditRouter from "./audit";
 import importRouter from "./import";
+import integrityRouter from "./integrity";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(searchRouter);
 router.use(driveRouter);
 router.use(auditRouter);
 router.use(importRouter);
+router.use(integrityRouter);
 
 export default router;

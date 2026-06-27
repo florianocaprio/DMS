@@ -14,6 +14,7 @@ import {
   Settings,
   ClipboardList,
   Upload,
+  ShieldCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetCurrentUser } from "@workspace/api-client-react";
@@ -34,6 +35,7 @@ const adminNavigation = [
   { name: "Titolario", href: "/admin/classifications", icon: BookOpen },
   { name: "Audit Log", href: "/admin/audit-log", icon: ClipboardList },
   { name: "Import Regystrum", href: "/admin/import", icon: Upload },
+  { name: "Integrità", href: "/admin/integrity", icon: ShieldCheck },
   { name: "Impostazioni", href: "/admin/settings", icon: Settings },
 ];
 

@@ -17,6 +17,7 @@ import ClassificationsPage from "@/pages/admin/classifications";
 import SettingsPage from "@/pages/admin/settings";
 import AuditLogPage from "@/pages/admin/audit-log";
 import ImportPage from "@/pages/admin/import";
+import IntegrityPage from "@/pages/admin/integrity";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,7 @@ function Router() {
         <Route path="/admin/settings" component={SettingsPage} />
         <Route path="/admin/audit-log" component={AuditLogPage} />
         <Route path="/admin/import" component={ImportPage} />
+        <Route path="/admin/integrity" component={IntegrityPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
