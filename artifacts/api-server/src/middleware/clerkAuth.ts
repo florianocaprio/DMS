@@ -9,7 +9,15 @@ const ALLOWED_DOMAIN = "angeliinmoto.it";
 
 // Paths (relative to the /api mount) that are reachable without authentication.
 // The /auth/* endpoints handle the local login flow themselves.
-const PUBLIC_PATHS = new Set(["/healthz", "/auth/login", "/auth/logout", "/auth/session"]);
+const PUBLIC_PATHS = new Set([
+  "/healthz",
+  "/auth/login",
+  "/auth/logout",
+  "/auth/session",
+  // First-run setup: status probe + user creation while no admin exists. The
+  // POST handler enforces that it only works in setup mode.
+  "/auth/bootstrap",
+]);
 
 // Signed cookie carrying the local-session user id (set by routes/auth.ts).
 const LOCAL_SESSION_COOKIE = "pd_session";

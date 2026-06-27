@@ -35,7 +35,8 @@ Sistema di gestione documentale (DMS) per enti non profit e PMI italiane. Regist
 ## Architecture decisions
 
 - **OpenAPI-first**: tutte le route sono definite in `openapi.yaml` prima di essere implementate; i client usano hook generati da Orval.
-- **Utente corrente hardcoded** a `id: 1` (nessuna autenticazione ancora implementata).
+- **Autenticazione doppia**: login Google/Clerk (ristretto a `@angeliinmoto.it`) **oppure** login locale username/password con cookie di sessione firmato (`pd_session`).
+- **Primo avvio (setup)**: se nel database non esiste alcun amministratore, l'app entra in modalità setup e consente — senza login — **solo** la creazione delle utenze tramite gli endpoint pubblici `GET/POST /api/auth/bootstrap`. Alla creazione del primo utente con ruolo `admin` il setup si chiude e da quel momento l'accesso richiede le credenziali. Nessun admin viene più auto-seedato al boot.
 - **Formato numero protocollo**: `AIM-{anno}-{E|U|I|RIS}-{000001}` (E=entrata, U=uscita, I=interno, RIS=riservato).
 - **Formato codice fascicolo**: `FASC-{anno}-{####}`.
 - **Status badge bidirezionale**: i badge gestiscono sia i valori in italiano che in inglese (es. "completed" e "completato"), perché l'API restituisce valori in inglese.

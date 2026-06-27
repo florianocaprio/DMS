@@ -1,10 +1,16 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/password";
+import { adminExists, validateBootstrapInput } from "../lib/bootstrap";
 
 const router = Router();
+
+// Arbitrary constant key used to serialize concurrent first-run bootstrap
+// requests via a Postgres transaction-level advisory lock, so the
+// "no more creation once an admin exists" invariant holds even under races.
+const BOOTSTRAP_ADVISORY_LOCK_KEY = 920_117;
 
 // Name of the signed cookie that carries the local-session user id.
 export const LOCAL_SESSION_COOKIE = "pd_session";
@@ -66,6 +72,67 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 router.post("/auth/logout", async (_req, res): Promise<void> => {
   res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(), maxAge: undefined });
   res.status(204).end();
+});
+
+// GET /auth/bootstrap — reports whether the app still needs first-run setup
+// (no administrator account exists yet). Public.
+router.get("/auth/bootstrap", async (_req, res): Promise<void> => {
+  res.json({ setupMode: !(await adminExists()) });
+});
+
+// POST /auth/bootstrap — first-run user creation. Only allowed while no admin
+// exists; creating an administrator completes setup and locks this endpoint, so
+// from then on access requires real credentials. Public (used before any login).
+router.post("/auth/bootstrap", async (req, res): Promise<void> => {
+  if (await adminExists()) {
+    res.status(403).json({ error: "Configurazione già completata. Accedi con le tue credenziali." });
+    return;
+  }
+
+  const parsed = validateBootstrapInput(req.body);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const { name, email, username, password, role } = parsed.value;
+
+  // Hash outside the transaction so the (slow) scrypt work doesn't hold the
+  // advisory lock.
+  const passwordHash = await hashPassword(password);
+
+  try {
+    // Serialize all bootstrap creations and re-check admin existence INSIDE the
+    // locked transaction. This closes the check-then-insert race: once a request
+    // commits the first admin, every subsequent locked request sees it and is
+    // rejected, so no extra unauthenticated accounts can slip through.
+    const outcome = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${BOOTSTRAP_ADVISORY_LOCK_KEY})`);
+      const [existingAdmin] = await tx
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.role, "admin"))
+        .limit(1);
+      if (existingAdmin) return { locked: true as const };
+      const [user] = await tx
+        .insert(usersTable)
+        .values({ name, email, username, passwordHash, role, isActive: true })
+        .returning();
+      return { locked: false as const, user };
+    });
+
+    if (outcome.locked) {
+      res.status(403).json({ error: "Configurazione già completata. Accedi con le tue credenziali." });
+      return;
+    }
+    res.status(201).json({ user: publicUser(outcome.user), setupComplete: role === "admin" });
+  } catch (err) {
+    if ((err as { code?: string })?.code === "23505") {
+      res.status(409).json({ error: "Nome utente o email già esistenti" });
+      return;
+    }
+    req.log.error({ err }, "bootstrap user creation failed");
+    res.status(500).json({ error: "Errore durante la creazione dell'utenza" });
+  }
 });
 
 // POST /auth/change-password — sets a new password for the current local-session

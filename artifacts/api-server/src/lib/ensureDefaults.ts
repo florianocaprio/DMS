@@ -1,82 +1,9 @@
 import { db } from "@workspace/db";
-import { dossiersTable, usersTable } from "@workspace/db";
+import { dossiersTable } from "@workspace/db";
 import { and, eq, ne, asc } from "drizzle-orm";
 import { logger } from "./logger";
-import { hashPassword } from "./password";
 
 const DEFAULT_DOSSIER_TITLE = "Archivio Documenti";
-
-const LOCAL_ADMIN_USERNAME = "admin";
-const LOCAL_ADMIN_EMAIL = "admin@angeliinmoto.it";
-const LOCAL_ADMIN_NAME = "Amministratore";
-const LOCAL_ADMIN_PASSWORD = "flocap!";
-
-/**
- * Ensures a local admin account (username `admin`) exists with a password so the
- * app can be accessed without Clerk/Google. Idempotent: if the account already
- * exists it is reconciled to a working administrator state (role=admin, active,
- * and a password hash present), without clobbering an existing/changed password
- * or its mustChangePassword flag; if a row with the admin email exists it is
- * upgraded with the username/initial password (and forced password change)
- * rather than creating a duplicate. New admins must change the initial password
- * (`flocap!`) on first login.
- */
-export async function ensureLocalAdmin(): Promise<void> {
-  try {
-    const [byUsername] = await db
-      .select({ id: usersTable.id, passwordHash: usersTable.passwordHash })
-      .from(usersTable)
-      .where(eq(usersTable.username, LOCAL_ADMIN_USERNAME))
-      .limit(1);
-    if (byUsername) {
-      // Repair role/active and backfill a password hash if missing, so the
-      // local admin can always sign in. Don't overwrite an existing hash.
-      await db
-        .update(usersTable)
-        .set({
-          role: "admin",
-          isActive: true,
-          ...(byUsername.passwordHash ? {} : { passwordHash: await hashPassword(LOCAL_ADMIN_PASSWORD) }),
-        })
-        .where(eq(usersTable.id, byUsername.id));
-      return;
-    }
-
-    const passwordHash = await hashPassword(LOCAL_ADMIN_PASSWORD);
-
-    const [byEmail] = await db
-      .select({ id: usersTable.id })
-      .from(usersTable)
-      .where(eq(usersTable.email, LOCAL_ADMIN_EMAIL))
-      .limit(1);
-
-    if (byEmail) {
-      await db
-        .update(usersTable)
-        .set({ username: LOCAL_ADMIN_USERNAME, passwordHash, role: "admin", isActive: true, mustChangePassword: true })
-        .where(eq(usersTable.id, byEmail.id));
-      logger.info({ id: byEmail.id }, "ensureLocalAdmin: upgraded existing user with local credentials");
-      return;
-    }
-
-    const [created] = await db
-      .insert(usersTable)
-      .values({
-        username: LOCAL_ADMIN_USERNAME,
-        passwordHash,
-        email: LOCAL_ADMIN_EMAIL,
-        name: LOCAL_ADMIN_NAME,
-        role: "admin",
-        isActive: true,
-        mustChangePassword: true,
-      })
-      .onConflictDoNothing()
-      .returning();
-    logger.info({ id: created?.id }, "ensureLocalAdmin: created local admin account");
-  } catch (err) {
-    logger.error({ err }, "ensureLocalAdmin failed");
-  }
-}
 
 /**
  * Returns the id of the default dossier ("Archivio Documenti"), or null if it
