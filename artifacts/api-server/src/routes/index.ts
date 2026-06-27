@@ -13,6 +13,7 @@ import workflowsRouter from "./workflows";
 import signaturesRouter from "./signatures";
 import dashboardRouter from "./dashboard";
 import searchRouter from "./search";
+import driveRouter from "./drive";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(tasksRouter);
 router.use(workflowsRouter);
 router.use(signaturesRouter);
 router.use(searchRouter);
+router.use(driveRouter);
 
 export default router;
