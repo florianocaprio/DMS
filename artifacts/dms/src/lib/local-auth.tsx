@@ -10,6 +10,7 @@ export interface LocalUser {
   username: string | null;
   avatarUrl: string | null;
   isActive: boolean;
+  mustChangePassword: boolean;
 }
 
 interface LocalAuthValue {
@@ -17,6 +18,7 @@ interface LocalAuthValue {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const LocalAuthContext = createContext<LocalAuthValue | null>(null);
@@ -67,8 +69,22 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    const r = await fetch(`${API}/auth/change-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!r.ok) {
+      const err = (await r.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error ?? "Impossibile aggiornare la password");
+    }
+    setUser((await r.json()) as LocalUser);
+  }, []);
+
   return (
-    <LocalAuthContext.Provider value={{ user, loading, login, logout }}>
+    <LocalAuthContext.Provider value={{ user, loading, login, logout, changePassword }}>
       {children}
     </LocalAuthContext.Provider>
   );

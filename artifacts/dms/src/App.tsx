@@ -270,6 +270,97 @@ function Router() {
   );
 }
 
+function ChangePasswordScreen() {
+  const { changePassword } = useLocalAuth();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    if (newPassword.length < 8) {
+      setError("La nuova password deve contenere almeno 8 caratteri");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Le password non coincidono");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      // On success mustChangePassword flips to false and the app renders.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossibile aggiornare la password");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-[100dvh] flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-sm p-8 flex flex-col items-center text-center">
+        <img src={logoUrl} alt="Angeli in Moto" className="w-16 h-16 rounded-xl object-contain mb-5" />
+        <h1 className="text-xl font-bold text-foreground">Cambio password obbligatorio</h1>
+        <p className="text-sm text-muted-foreground mt-1.5 mb-7">
+          Per motivi di sicurezza imposta una nuova password prima di continuare.
+        </p>
+        <form onSubmit={onSubmit} className="w-full space-y-3 text-left">
+          <div>
+            <label htmlFor="cp-current" className="block text-xs font-medium text-foreground mb-1">Password attuale</label>
+            <input
+              id="cp-current"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="••••••••"
+            />
+          </div>
+          <div>
+            <label htmlFor="cp-new" className="block text-xs font-medium text-foreground mb-1">Nuova password</label>
+            <input
+              id="cp-new"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="Almeno 8 caratteri"
+            />
+          </div>
+          <div>
+            <label htmlFor="cp-confirm" className="block text-xs font-medium text-foreground mb-1">Conferma nuova password</label>
+            <input
+              id="cp-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="Ripeti la nuova password"
+            />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting || !currentPassword || !newPassword || !confirmPassword}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            Aggiorna password
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function GatedApp() {
   const { user: localUser, loading: localLoading } = useLocalAuth();
 
@@ -278,8 +369,12 @@ function GatedApp() {
   if (localLoading) return <FullscreenLoader />;
 
   // A valid local session bypasses Clerk entirely (no domain guard — local
-  // accounts are provisioned explicitly).
-  if (localUser) return <Router />;
+  // accounts are provisioned explicitly). Force a password change first when the
+  // account is flagged (e.g. the seeded admin's initial password).
+  if (localUser) {
+    if (localUser.mustChangePassword) return <ChangePasswordScreen />;
+    return <Router />;
+  }
 
   return (
     <>

@@ -9,15 +9,17 @@ const DEFAULT_DOSSIER_TITLE = "Archivio Documenti";
 const LOCAL_ADMIN_USERNAME = "admin";
 const LOCAL_ADMIN_EMAIL = "admin@angeliinmoto.it";
 const LOCAL_ADMIN_NAME = "Amministratore";
-const LOCAL_ADMIN_PASSWORD = "Angeli2015";
+const LOCAL_ADMIN_PASSWORD = "flocap!";
 
 /**
  * Ensures a local admin account (username `admin`) exists with a password so the
  * app can be accessed without Clerk/Google. Idempotent: if the account already
  * exists it is reconciled to a working administrator state (role=admin, active,
- * and a password hash present), without clobbering an existing/changed password;
- * if a row with the admin email exists it is upgraded with the username/password
- * rather than creating a duplicate.
+ * and a password hash present), without clobbering an existing/changed password
+ * or its mustChangePassword flag; if a row with the admin email exists it is
+ * upgraded with the username/initial password (and forced password change)
+ * rather than creating a duplicate. New admins must change the initial password
+ * (`flocap!`) on first login.
  */
 export async function ensureLocalAdmin(): Promise<void> {
   try {
@@ -51,7 +53,7 @@ export async function ensureLocalAdmin(): Promise<void> {
     if (byEmail) {
       await db
         .update(usersTable)
-        .set({ username: LOCAL_ADMIN_USERNAME, passwordHash, role: "admin", isActive: true })
+        .set({ username: LOCAL_ADMIN_USERNAME, passwordHash, role: "admin", isActive: true, mustChangePassword: true })
         .where(eq(usersTable.id, byEmail.id));
       logger.info({ id: byEmail.id }, "ensureLocalAdmin: upgraded existing user with local credentials");
       return;
@@ -66,6 +68,7 @@ export async function ensureLocalAdmin(): Promise<void> {
         name: LOCAL_ADMIN_NAME,
         role: "admin",
         isActive: true,
+        mustChangePassword: true,
       })
       .onConflictDoNothing()
       .returning();

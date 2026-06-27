@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { verifyPassword } from "../lib/password";
+import { hashPassword, verifyPassword } from "../lib/password";
 
 const router = Router();
 
@@ -31,6 +31,7 @@ function publicUser(u: typeof usersTable.$inferSelect) {
     username: u.username,
     avatarUrl: u.avatarUrl,
     isActive: u.isActive,
+    mustChangePassword: u.mustChangePassword,
   };
 }
 
@@ -65,6 +66,51 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 router.post("/auth/logout", async (_req, res): Promise<void> => {
   res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(), maxAge: undefined });
   res.status(204).end();
+});
+
+// POST /auth/change-password — sets a new password for the current local-session
+// user and clears the mustChangePassword flag. Requires authentication (the
+// signed session cookie set by /auth/login), so it is NOT a public path.
+router.post("/auth/change-password", async (req, res): Promise<void> => {
+  const userId = req.currentUserId;
+  if (!userId) {
+    res.status(401).json({ error: "Autenticazione richiesta" });
+    return;
+  }
+
+  const currentPassword = typeof req.body?.currentPassword === "string" ? req.body.currentPassword : "";
+  const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Password attuale e nuova password sono obbligatorie" });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ error: "La nuova password deve contenere almeno 8 caratteri" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+  if (!user) {
+    res.status(401).json({ error: "Utente non trovato" });
+    return;
+  }
+  const ok = await verifyPassword(currentPassword, user.passwordHash);
+  if (!ok) {
+    res.status(401).json({ error: "Password attuale non corretta" });
+    return;
+  }
+  if (newPassword === currentPassword) {
+    res.status(400).json({ error: "La nuova password deve essere diversa da quella attuale" });
+    return;
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  const [updated] = await db
+    .update(usersTable)
+    .set({ passwordHash, mustChangePassword: false })
+    .where(eq(usersTable.id, userId))
+    .returning();
+  res.json(publicUser(updated));
 });
 
 // GET /auth/session — returns the local-session user if the signed cookie is

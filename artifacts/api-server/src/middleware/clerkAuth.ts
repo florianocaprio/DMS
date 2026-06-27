@@ -14,6 +14,12 @@ const PUBLIC_PATHS = new Set(["/healthz", "/auth/login", "/auth/logout", "/auth/
 // Signed cookie carrying the local-session user id (set by routes/auth.ts).
 const LOCAL_SESSION_COOKIE = "pd_session";
 
+// The only protected path a local user with a pending forced password change may
+// reach (login/logout/session are already public). Everything else is blocked
+// until the password is changed, so the forced-change gate is enforced server-side
+// and not merely in the UI.
+const PASSWORD_CHANGE_PATH = "/auth/change-password";
+
 // Emails that are always provisioned (and kept) as system administrators.
 const ADMIN_EMAILS = new Set(["info@angeliinmoto.it"]);
 
@@ -138,6 +144,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       if (row && row.isActive) {
         req.currentUser = { id: row.id, email: row.email, name: row.name, role: row.role };
         req.currentUserId = row.id;
+        // Forced password change: block all protected routes except the
+        // change-password endpoint until the user sets a new password.
+        if (row.mustChangePassword && req.path !== PASSWORD_CHANGE_PATH) {
+          res.status(403).json({ error: "Cambio password obbligatorio prima di continuare", mustChangePassword: true });
+          return;
+        }
         next();
         return;
       }
