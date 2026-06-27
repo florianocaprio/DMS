@@ -1120,6 +1120,236 @@ export const GetDossierDocumentsResponse = zod.array(GetDossierDocumentsResponse
 
 
 /**
+ * @summary List protocols in a dossier
+ */
+export const GetDossierProtocolsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const getDossierProtocolsResponseConfidentialityDefault = `normal`;
+export const getDossierProtocolsResponsePriorityDefault = `normal`;
+
+export const GetDossierProtocolsResponseItem = zod.object({
+  "id": zod.number(),
+  "number": zod.string(),
+  "year": zod.number(),
+  "type": zod.string(),
+  "status": zod.string(),
+  "subject": zod.string(),
+  "description": zod.string().nullish(),
+  "sender": zod.string().nullish(),
+  "recipients": zod.array(zod.string()).optional(),
+  "ccRecipients": zod.array(zod.string()).optional(),
+  "channel": zod.string().nullish(),
+  "confidentiality": zod.string().default(getDossierProtocolsResponseConfidentialityDefault),
+  "priority": zod.string().default(getDossierProtocolsResponsePriorityDefault),
+  "dossierId": zod.number().nullish(),
+  "dossierTitle": zod.string().nullish(),
+  "classificationId": zod.number().nullish(),
+  "classificationCode": zod.string().nullish(),
+  "documentId": zod.number().nullish(),
+  "assignedToId": zod.number().nullish(),
+  "assignedToName": zod.string().nullish(),
+  "registeredById": zod.number(),
+  "registeredByName": zod.string(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelReason": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "driveFolder": zod.string().nullish(),
+  "registeredAt": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const GetDossierProtocolsResponse = zod.array(GetDossierProtocolsResponseItem)
+
+
+/**
+ * @summary List workflow rules attached to a dossier
+ */
+export const ListDossierWorkflowRulesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListDossierWorkflowRulesResponseItem = zod.object({
+  "id": zod.number(),
+  "dossierId": zod.number(),
+  "type": zod.string().describe('cc | approval | signature'),
+  "name": zod.string(),
+  "appliesTo": zod.string().describe('documents | protocols | both'),
+  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "participantNames": zod.array(zod.string()).optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListDossierWorkflowRulesResponse = zod.array(ListDossierWorkflowRulesResponseItem)
+
+
+/**
+ * @summary Attach a workflow rule to a dossier
+ */
+export const CreateDossierWorkflowRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateDossierWorkflowRuleBody = zod.object({
+  "type": zod.string(),
+  "name": zod.string(),
+  "appliesTo": zod.string().optional(),
+  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateDossierWorkflowRuleResponse = zod.object({
+  "id": zod.number(),
+  "dossierId": zod.number(),
+  "type": zod.string().describe('cc | approval | signature'),
+  "name": zod.string(),
+  "appliesTo": zod.string().describe('documents | protocols | both'),
+  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "participantNames": zod.array(zod.string()).optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a dossier workflow rule
+ */
+export const UpdateDossierWorkflowRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateDossierWorkflowRuleBody = zod.object({
+  "name": zod.string().optional(),
+  "appliesTo": zod.string().optional(),
+  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateDossierWorkflowRuleResponse = zod.object({
+  "id": zod.number(),
+  "dossierId": zod.number(),
+  "type": zod.string().describe('cc | approval | signature'),
+  "name": zod.string(),
+  "appliesTo": zod.string().describe('documents | protocols | both'),
+  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "participantNames": zod.array(zod.string()).optional(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a dossier workflow rule
+ */
+export const DeleteDossierWorkflowRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteDossierWorkflowRuleResponse = zod.void()
+
+
+/**
+ * @summary List workflow instances triggered within a dossier
+ */
+export const ListDossierWorkflowInstancesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListDossierWorkflowInstancesResponseItem = zod.object({
+  "id": zod.number(),
+  "ruleId": zod.number(),
+  "ruleName": zod.string(),
+  "dossierId": zod.number(),
+  "type": zod.string(),
+  "targetType": zod.string(),
+  "targetId": zod.number(),
+  "targetTitle": zod.string().nullish(),
+  "status": zod.string(),
+  "signatureRequestId": zod.number().nullish(),
+  "participants": zod.array(zod.object({
+  "userId": zod.number(),
+  "userName": zod.string(),
+  "status": zod.string(),
+  "actedAt": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+export const ListDossierWorkflowInstancesResponse = zod.array(ListDossierWorkflowInstancesResponseItem)
+
+
+/**
+ * @summary List dossier workflow instances (optionally pending for current user)
+ */
+export const ListWorkflowInstancesQueryParams = zod.object({
+  "pendingForMe": zod.coerce.boolean().nullish()
+})
+
+export const ListWorkflowInstancesResponseItem = zod.object({
+  "id": zod.number(),
+  "ruleId": zod.number(),
+  "ruleName": zod.string(),
+  "dossierId": zod.number(),
+  "type": zod.string(),
+  "targetType": zod.string(),
+  "targetId": zod.number(),
+  "targetTitle": zod.string().nullish(),
+  "status": zod.string(),
+  "signatureRequestId": zod.number().nullish(),
+  "participants": zod.array(zod.object({
+  "userId": zod.number(),
+  "userName": zod.string(),
+  "status": zod.string(),
+  "actedAt": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+export const ListWorkflowInstancesResponse = zod.array(ListWorkflowInstancesResponseItem)
+
+
+/**
+ * @summary Approve, reject or acknowledge a workflow instance
+ */
+export const ActOnWorkflowInstanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ActOnWorkflowInstanceBody = zod.object({
+  "action": zod.string().describe('approve | reject | acknowledge'),
+  "note": zod.string().optional()
+})
+
+export const ActOnWorkflowInstanceResponse = zod.object({
+  "id": zod.number(),
+  "ruleId": zod.number(),
+  "ruleName": zod.string(),
+  "dossierId": zod.number(),
+  "type": zod.string(),
+  "targetType": zod.string(),
+  "targetId": zod.number(),
+  "targetTitle": zod.string().nullish(),
+  "status": zod.string(),
+  "signatureRequestId": zod.number().nullish(),
+  "participants": zod.array(zod.object({
+  "userId": zod.number(),
+  "userName": zod.string(),
+  "status": zod.string(),
+  "actedAt": zod.string().nullish(),
+  "note": zod.string().nullish()
+})),
+  "note": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullish()
+})
+
+
+/**
  * @summary List tasks
  */
 export const listTasksQueryPageDefault = 1;

@@ -5,6 +5,7 @@ import { it } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badges";
 import { useToast } from "@/hooks/use-toast";
+import DossierWorkflowTab from "./workflow-tab";
 import {
   ArrowLeft,
   FolderOpen,
@@ -18,6 +19,7 @@ import {
   Tag,
   Lock,
   RefreshCw,
+  GitMerge,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -109,7 +111,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
-type Tab = "documents" | "protocols";
+type Tab = "documents" | "protocols" | "workflow";
 
 interface Props {
   id: string;
@@ -153,6 +155,7 @@ export default function DossierDetail({ id }: Props) {
 
   const loadTab = async (t: Tab) => {
     setTab(t);
+    if (t === "workflow") return;
     setLoadingTab(true);
     try {
       if (t === "documents") {
@@ -373,7 +376,7 @@ export default function DossierDetail({ id }: Props) {
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           {/* Tab header */}
           <div className="flex border-b border-border">
-            {([["documents", "Documenti", FileText], ["protocols", "Protocolli", Files]] as const).map(([t, label, Icon]) => (
+            {([["documents", "Documenti", FileText], ["protocols", "Protocolli", Files], ["workflow", "Workflow", GitMerge]] as const).map(([t, label, Icon]) => (
               <button
                 key={t}
                 onClick={() => loadTab(t)}
@@ -473,6 +476,9 @@ export default function DossierDetail({ id }: Props) {
               </table>
             )
           )}
+
+          {/* Workflow tab */}
+          {tab === "workflow" && <DossierWorkflowTab dossierId={dossierId} />}
         </div>
       </div>
     </div>

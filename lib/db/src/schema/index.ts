@@ -5,6 +5,7 @@ export * from "./documents";
 export * from "./protocols";
 export * from "./tasks";
 export * from "./workflows";
+export * from "./dossierWorkflows";
 export * from "./signatures";
 export * from "./assignments";
 export * from "./attachments";

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { protocolsTable, usersTable, dossiersTable, classificationsTable } from "@workspace/db";
 import { eq, sql, desc } from "drizzle-orm";
+import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
 
 const router = Router();
 
@@ -100,6 +101,7 @@ router.post("/protocols", async (req, res): Promise<void> => {
     documentId: documentId || null, assignedToId: assignedToId || null,
     registeredById: 1, notes,
   }).returning();
+  if (p.dossierId) await triggerDossierWorkflows(p.dossierId, "protocol", p.id);
   res.status(201).json(fmtProtocol(p, {}, {}, {}));
 });
 
@@ -117,8 +119,12 @@ router.patch("/protocols/:id", async (req, res): Promise<void> => {
   if (classificationId !== undefined) updates.classificationId = classificationId;
   if (assignedToId !== undefined) updates.assignedToId = assignedToId;
   if (notes !== undefined) updates.notes = notes;
+  const [prev] = await db.select().from(protocolsTable).where(eq(protocolsTable.id, id)).limit(1);
   const [p] = await db.update(protocolsTable).set(updates).where(eq(protocolsTable.id, id)).returning();
   if (!p) { res.status(404).json({ error: "Not found" }); return; }
+  if (p.dossierId && p.dossierId !== prev?.dossierId) {
+    await triggerDossierWorkflows(p.dossierId, "protocol", p.id);
+  }
   res.json(fmtProtocol(p, {}, {}, {}));
 });
 

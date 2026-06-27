@@ -660,6 +660,176 @@ paths:
                 items:
                   $ref: "#/components/schemas/Document"
 
+  /dossiers/{id}/protocols:
+    get:
+      operationId: getDossierProtocols
+      tags: [dossiers]
+      summary: List protocols in a dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Protocols in dossier
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Protocol"
+
+  # --- DOSSIER WORKFLOWS ---
+  /dossiers/{id}/workflow-rules:
+    get:
+      operationId: listDossierWorkflowRules
+      tags: [dossierWorkflows]
+      summary: List workflow rules attached to a dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workflow rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DossierWorkflowRule"
+    post:
+      operationId: createDossierWorkflowRule
+      tags: [dossierWorkflows]
+      summary: Attach a workflow rule to a dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DossierWorkflowRuleInput"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DossierWorkflowRule"
+
+  /workflow-rules/{id}:
+    patch:
+      operationId: updateDossierWorkflowRule
+      tags: [dossierWorkflows]
+      summary: Update a dossier workflow rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DossierWorkflowRuleUpdate"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DossierWorkflowRule"
+    delete:
+      operationId: deleteDossierWorkflowRule
+      tags: [dossierWorkflows]
+      summary: Delete a dossier workflow rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /dossiers/{id}/workflow-instances:
+    get:
+      operationId: listDossierWorkflowInstances
+      tags: [dossierWorkflows]
+      summary: List workflow instances triggered within a dossier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workflow instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DossierWorkflowInstance"
+
+  /workflow-instances:
+    get:
+      operationId: listWorkflowInstances
+      tags: [dossierWorkflows]
+      summary: List dossier workflow instances (optionally pending for current user)
+      parameters:
+        - name: pendingForMe
+          in: query
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: Workflow instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DossierWorkflowInstance"
+
+  /workflow-instances/{id}/act:
+    post:
+      operationId: actOnWorkflowInstance
+      tags: [dossierWorkflows]
+      summary: Approve, reject or acknowledge a workflow instance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowInstanceAction"
+      responses:
+        "200":
+          description: Updated instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DossierWorkflowInstance"
+
   # --- TASKS ---
   /tasks:
     get:
@@ -2087,6 +2257,147 @@ components:
           type: string
         delegateToId:
           type: ["integer", "null"]
+
+    # --- DOSSIER WORKFLOWS ---
+    DossierWorkflowRule:
+      type: object
+      required:
+        - id
+        - dossierId
+        - type
+        - name
+        - appliesTo
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: integer
+        dossierId:
+          type: integer
+        type:
+          type: string
+          description: cc | approval | signature
+        name:
+          type: string
+        appliesTo:
+          type: string
+          description: documents | protocols | both
+        config:
+          type: object
+          additionalProperties: true
+        participantNames:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+
+    DossierWorkflowRuleInput:
+      type: object
+      required:
+        - type
+        - name
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+        appliesTo:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+
+    DossierWorkflowRuleUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        appliesTo:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+
+    DossierWorkflowInstance:
+      type: object
+      required:
+        - id
+        - ruleId
+        - ruleName
+        - dossierId
+        - type
+        - targetType
+        - targetId
+        - status
+        - participants
+        - createdAt
+      properties:
+        id:
+          type: integer
+        ruleId:
+          type: integer
+        ruleName:
+          type: string
+        dossierId:
+          type: integer
+        type:
+          type: string
+        targetType:
+          type: string
+        targetId:
+          type: integer
+        targetTitle:
+          type: ["string", "null"]
+        status:
+          type: string
+        signatureRequestId:
+          type: ["integer", "null"]
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowInstanceParticipant"
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        resolvedAt:
+          type: ["string", "null"]
+
+    WorkflowInstanceParticipant:
+      type: object
+      required:
+        - userId
+        - userName
+        - status
+      properties:
+        userId:
+          type: integer
+        userName:
+          type: string
+        status:
+          type: string
+        actedAt:
+          type: ["string", "null"]
+        note:
+          type: ["string", "null"]
+
+    WorkflowInstanceAction:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          description: approve | reject | acknowledge
+        note:
+          type: string
 
     # --- SIGNATURES ---
     SignatureRequest:

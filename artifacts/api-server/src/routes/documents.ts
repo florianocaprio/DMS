@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { documentsTable, usersTable, dossiersTable, classificationsTable, protocolsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
 
 const router = Router();
 
@@ -46,6 +47,7 @@ router.post("/documents", async (req, res): Promise<void> => {
     tags: tags || [],
     driveUrl, fileName,
   }).returning();
+  if (doc.dossierId) await triggerDossierWorkflows(doc.dossierId, "document", doc.id);
   const userMap = await getUserMap();
   res.status(201).json(fmtDocument(doc, userMap, {}, {}, {}));
 });
@@ -76,8 +78,12 @@ router.patch("/documents/:id", async (req, res): Promise<void> => {
   if (responsibleId !== undefined) updates.responsibleId = responsibleId;
   if (tags !== undefined) updates.tags = tags;
   if (aiSummary !== undefined) updates.aiSummary = aiSummary;
+  const [prev] = await db.select().from(documentsTable).where(eq(documentsTable.id, id)).limit(1);
   const [doc] = await db.update(documentsTable).set(updates).where(eq(documentsTable.id, id)).returning();
   if (!doc) { res.status(404).json({ error: "Not found" }); return; }
+  if (doc.dossierId && doc.dossierId !== prev?.dossierId) {
+    await triggerDossierWorkflows(doc.dossierId, "document", doc.id);
+  }
   const userMap = await getUserMap();
   res.json(fmtDocument(doc, userMap, {}, {}, {}));
 });

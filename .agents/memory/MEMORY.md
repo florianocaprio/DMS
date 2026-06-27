@@ -1,1 +1,1 @@
-- [Import Regystrum CSV](import-regystrum.md) — CSV format: Suffisso="-" is header row, "1","2"... are attachment rows; status always forced to "imported"
+- [Orval query-key invalidation](orval-query-keys.md) — Orval RQ keys are URL-based (`/api/...`); invalidate by URL prefix or predicate, never by operation name.

@@ -38,6 +38,10 @@ import type {
   DossierInput,
   DossierList,
   DossierUpdate,
+  DossierWorkflowInstance,
+  DossierWorkflowRule,
+  DossierWorkflowRuleInput,
+  DossierWorkflowRuleUpdate,
   ErrorEnvelope,
   FileAttachment,
   HealthStatus,
@@ -49,6 +53,7 @@ import type {
   ListSignaturesParams,
   ListTasksParams,
   ListUsersParams,
+  ListWorkflowInstancesParams,
   MyDashboardItems,
   Protocol,
   ProtocolInput,
@@ -72,6 +77,7 @@ import type {
   UserUpdate,
   Workflow,
   WorkflowInput,
+  WorkflowInstanceAction,
   WorkflowStepOutcome
 } from './api.schemas';
 
@@ -2200,6 +2206,604 @@ export function useGetDossierDocuments<TData = Awaited<ReturnType<typeof getDoss
 
 
 
+
+export const getGetDossierProtocolsUrl = (id: number,) => {
+
+
+
+
+  return `/api/dossiers/${id}/protocols`
+}
+
+/**
+ * @summary List protocols in a dossier
+ */
+export const getDossierProtocols = async (id: number, options?: RequestInit): Promise<Protocol[]> => {
+
+  return customFetch<Protocol[]>(getGetDossierProtocolsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDossierProtocolsQueryKey = (id: number,) => {
+    return [
+    `/api/dossiers/${id}/protocols`
+    ] as const;
+    }
+
+
+export const getGetDossierProtocolsQueryOptions = <TData = Awaited<ReturnType<typeof getDossierProtocols>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDossierProtocols>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDossierProtocolsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDossierProtocols>>> = ({ signal }) => getDossierProtocols(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDossierProtocols>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDossierProtocolsQueryResult = NonNullable<Awaited<ReturnType<typeof getDossierProtocols>>>
+export type GetDossierProtocolsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List protocols in a dossier
+ */
+
+export function useGetDossierProtocols<TData = Awaited<ReturnType<typeof getDossierProtocols>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDossierProtocols>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDossierProtocolsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListDossierWorkflowRulesUrl = (id: number,) => {
+
+
+
+
+  return `/api/dossiers/${id}/workflow-rules`
+}
+
+/**
+ * @summary List workflow rules attached to a dossier
+ */
+export const listDossierWorkflowRules = async (id: number, options?: RequestInit): Promise<DossierWorkflowRule[]> => {
+
+  return customFetch<DossierWorkflowRule[]>(getListDossierWorkflowRulesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDossierWorkflowRulesQueryKey = (id: number,) => {
+    return [
+    `/api/dossiers/${id}/workflow-rules`
+    ] as const;
+    }
+
+
+export const getListDossierWorkflowRulesQueryOptions = <TData = Awaited<ReturnType<typeof listDossierWorkflowRules>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDossierWorkflowRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDossierWorkflowRulesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDossierWorkflowRules>>> = ({ signal }) => listDossierWorkflowRules(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDossierWorkflowRules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDossierWorkflowRulesQueryResult = NonNullable<Awaited<ReturnType<typeof listDossierWorkflowRules>>>
+export type ListDossierWorkflowRulesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List workflow rules attached to a dossier
+ */
+
+export function useListDossierWorkflowRules<TData = Awaited<ReturnType<typeof listDossierWorkflowRules>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDossierWorkflowRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDossierWorkflowRulesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateDossierWorkflowRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/dossiers/${id}/workflow-rules`
+}
+
+/**
+ * @summary Attach a workflow rule to a dossier
+ */
+export const createDossierWorkflowRule = async (id: number,
+    dossierWorkflowRuleInput: DossierWorkflowRuleInput, options?: RequestInit): Promise<DossierWorkflowRule> => {
+
+  return customFetch<DossierWorkflowRule>(getCreateDossierWorkflowRuleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dossierWorkflowRuleInput)
+  }
+);}
+
+
+
+
+export const getCreateDossierWorkflowRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDossierWorkflowRule>>, TError,{id: number;data: BodyType<DossierWorkflowRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDossierWorkflowRule>>, TError,{id: number;data: BodyType<DossierWorkflowRuleInput>}, TContext> => {
+
+const mutationKey = ['createDossierWorkflowRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDossierWorkflowRule>>, {id: number;data: BodyType<DossierWorkflowRuleInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createDossierWorkflowRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDossierWorkflowRuleMutationResult = NonNullable<Awaited<ReturnType<typeof createDossierWorkflowRule>>>
+    export type CreateDossierWorkflowRuleMutationBody = BodyType<DossierWorkflowRuleInput>
+    export type CreateDossierWorkflowRuleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Attach a workflow rule to a dossier
+ */
+export const useCreateDossierWorkflowRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDossierWorkflowRule>>, TError,{id: number;data: BodyType<DossierWorkflowRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDossierWorkflowRule>>,
+        TError,
+        {id: number;data: BodyType<DossierWorkflowRuleInput>},
+        TContext
+      > => {
+      return useMutation(getCreateDossierWorkflowRuleMutationOptions(options));
+    }
+
+export const getUpdateDossierWorkflowRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/workflow-rules/${id}`
+}
+
+/**
+ * @summary Update a dossier workflow rule
+ */
+export const updateDossierWorkflowRule = async (id: number,
+    dossierWorkflowRuleUpdate: DossierWorkflowRuleUpdate, options?: RequestInit): Promise<DossierWorkflowRule> => {
+
+  return customFetch<DossierWorkflowRule>(getUpdateDossierWorkflowRuleUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dossierWorkflowRuleUpdate)
+  }
+);}
+
+
+
+
+export const getUpdateDossierWorkflowRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDossierWorkflowRule>>, TError,{id: number;data: BodyType<DossierWorkflowRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDossierWorkflowRule>>, TError,{id: number;data: BodyType<DossierWorkflowRuleUpdate>}, TContext> => {
+
+const mutationKey = ['updateDossierWorkflowRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDossierWorkflowRule>>, {id: number;data: BodyType<DossierWorkflowRuleUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateDossierWorkflowRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDossierWorkflowRuleMutationResult = NonNullable<Awaited<ReturnType<typeof updateDossierWorkflowRule>>>
+    export type UpdateDossierWorkflowRuleMutationBody = BodyType<DossierWorkflowRuleUpdate>
+    export type UpdateDossierWorkflowRuleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a dossier workflow rule
+ */
+export const useUpdateDossierWorkflowRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDossierWorkflowRule>>, TError,{id: number;data: BodyType<DossierWorkflowRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDossierWorkflowRule>>,
+        TError,
+        {id: number;data: BodyType<DossierWorkflowRuleUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateDossierWorkflowRuleMutationOptions(options));
+    }
+
+export const getDeleteDossierWorkflowRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/workflow-rules/${id}`
+}
+
+/**
+ * @summary Delete a dossier workflow rule
+ */
+export const deleteDossierWorkflowRule = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteDossierWorkflowRuleUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteDossierWorkflowRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDossierWorkflowRule>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDossierWorkflowRule>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDossierWorkflowRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDossierWorkflowRule>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDossierWorkflowRule(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDossierWorkflowRuleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDossierWorkflowRule>>>
+
+    export type DeleteDossierWorkflowRuleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a dossier workflow rule
+ */
+export const useDeleteDossierWorkflowRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDossierWorkflowRule>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDossierWorkflowRule>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDossierWorkflowRuleMutationOptions(options));
+    }
+
+export const getListDossierWorkflowInstancesUrl = (id: number,) => {
+
+
+
+
+  return `/api/dossiers/${id}/workflow-instances`
+}
+
+/**
+ * @summary List workflow instances triggered within a dossier
+ */
+export const listDossierWorkflowInstances = async (id: number, options?: RequestInit): Promise<DossierWorkflowInstance[]> => {
+
+  return customFetch<DossierWorkflowInstance[]>(getListDossierWorkflowInstancesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDossierWorkflowInstancesQueryKey = (id: number,) => {
+    return [
+    `/api/dossiers/${id}/workflow-instances`
+    ] as const;
+    }
+
+
+export const getListDossierWorkflowInstancesQueryOptions = <TData = Awaited<ReturnType<typeof listDossierWorkflowInstances>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDossierWorkflowInstances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDossierWorkflowInstancesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDossierWorkflowInstances>>> = ({ signal }) => listDossierWorkflowInstances(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDossierWorkflowInstances>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDossierWorkflowInstancesQueryResult = NonNullable<Awaited<ReturnType<typeof listDossierWorkflowInstances>>>
+export type ListDossierWorkflowInstancesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List workflow instances triggered within a dossier
+ */
+
+export function useListDossierWorkflowInstances<TData = Awaited<ReturnType<typeof listDossierWorkflowInstances>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDossierWorkflowInstances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDossierWorkflowInstancesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListWorkflowInstancesUrl = (params?: ListWorkflowInstancesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/workflow-instances?${stringifiedParams}` : `/api/workflow-instances`
+}
+
+/**
+ * @summary List dossier workflow instances (optionally pending for current user)
+ */
+export const listWorkflowInstances = async (params?: ListWorkflowInstancesParams, options?: RequestInit): Promise<DossierWorkflowInstance[]> => {
+
+  return customFetch<DossierWorkflowInstance[]>(getListWorkflowInstancesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWorkflowInstancesQueryKey = (params?: ListWorkflowInstancesParams,) => {
+    return [
+    `/api/workflow-instances`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWorkflowInstancesQueryOptions = <TData = Awaited<ReturnType<typeof listWorkflowInstances>>, TError = ErrorType<unknown>>(params?: ListWorkflowInstancesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkflowInstances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWorkflowInstancesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWorkflowInstances>>> = ({ signal }) => listWorkflowInstances(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWorkflowInstances>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWorkflowInstancesQueryResult = NonNullable<Awaited<ReturnType<typeof listWorkflowInstances>>>
+export type ListWorkflowInstancesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List dossier workflow instances (optionally pending for current user)
+ */
+
+export function useListWorkflowInstances<TData = Awaited<ReturnType<typeof listWorkflowInstances>>, TError = ErrorType<unknown>>(
+ params?: ListWorkflowInstancesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWorkflowInstances>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWorkflowInstancesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getActOnWorkflowInstanceUrl = (id: number,) => {
+
+
+
+
+  return `/api/workflow-instances/${id}/act`
+}
+
+/**
+ * @summary Approve, reject or acknowledge a workflow instance
+ */
+export const actOnWorkflowInstance = async (id: number,
+    workflowInstanceAction: WorkflowInstanceAction, options?: RequestInit): Promise<DossierWorkflowInstance> => {
+
+  return customFetch<DossierWorkflowInstance>(getActOnWorkflowInstanceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workflowInstanceAction)
+  }
+);}
+
+
+
+
+export const getActOnWorkflowInstanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnWorkflowInstance>>, TError,{id: number;data: BodyType<WorkflowInstanceAction>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof actOnWorkflowInstance>>, TError,{id: number;data: BodyType<WorkflowInstanceAction>}, TContext> => {
+
+const mutationKey = ['actOnWorkflowInstance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof actOnWorkflowInstance>>, {id: number;data: BodyType<WorkflowInstanceAction>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  actOnWorkflowInstance(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ActOnWorkflowInstanceMutationResult = NonNullable<Awaited<ReturnType<typeof actOnWorkflowInstance>>>
+    export type ActOnWorkflowInstanceMutationBody = BodyType<WorkflowInstanceAction>
+    export type ActOnWorkflowInstanceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Approve, reject or acknowledge a workflow instance
+ */
+export const useActOnWorkflowInstance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof actOnWorkflowInstance>>, TError,{id: number;data: BodyType<WorkflowInstanceAction>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof actOnWorkflowInstance>>,
+        TError,
+        {id: number;data: BodyType<WorkflowInstanceAction>},
+        TContext
+      > => {
+      return useMutation(getActOnWorkflowInstanceMutationOptions(options));
+    }
 
 export const getListTasksUrl = (params?: ListTasksParams,) => {
   const normalizedParams = new URLSearchParams();

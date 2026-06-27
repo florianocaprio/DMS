@@ -51,6 +51,15 @@ export function StatusBadge({ status }: { status: string }) {
     case "rejected":
     case "rifiutato":
       return <Badge variant="outline" className="bg-red-100 text-red-700 border-red-300 text-xs">Rifiutato</Badge>;
+    case "approved":
+    case "approvato":
+      return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">Approvato</Badge>;
+    case "acknowledged":
+    case "preso visione":
+      return <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-xs">Preso visione</Badge>;
+    case "signed":
+    case "firmato":
+      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">Firmato</Badge>;
     case "open":
     case "aperto":
       return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">Aperto</Badge>;

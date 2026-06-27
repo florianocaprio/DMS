@@ -528,6 +528,78 @@ export interface WorkflowStepOutcome {
   delegateToId?: number | null;
 }
 
+export type DossierWorkflowRuleConfig = { [key: string]: unknown };
+
+export interface DossierWorkflowRule {
+  id: number;
+  dossierId: number;
+  /** cc | approval | signature */
+  type: string;
+  name: string;
+  /** documents | protocols | both */
+  appliesTo: string;
+  config?: DossierWorkflowRuleConfig;
+  participantNames?: string[];
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type DossierWorkflowRuleInputConfig = { [key: string]: unknown };
+
+export interface DossierWorkflowRuleInput {
+  type: string;
+  name: string;
+  appliesTo?: string;
+  config?: DossierWorkflowRuleInputConfig;
+  isActive?: boolean;
+}
+
+export type DossierWorkflowRuleUpdateConfig = { [key: string]: unknown };
+
+export interface DossierWorkflowRuleUpdate {
+  name?: string;
+  appliesTo?: string;
+  config?: DossierWorkflowRuleUpdateConfig;
+  isActive?: boolean;
+}
+
+export interface WorkflowInstanceParticipant {
+  userId: number;
+  userName: string;
+  status: string;
+  /** @nullable */
+  actedAt?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface DossierWorkflowInstance {
+  id: number;
+  ruleId: number;
+  ruleName: string;
+  dossierId: number;
+  type: string;
+  targetType: string;
+  targetId: number;
+  /** @nullable */
+  targetTitle?: string | null;
+  status: string;
+  /** @nullable */
+  signatureRequestId?: number | null;
+  participants: WorkflowInstanceParticipant[];
+  /** @nullable */
+  note?: string | null;
+  createdAt: string;
+  /** @nullable */
+  resolvedAt?: string | null;
+}
+
+export interface WorkflowInstanceAction {
+  /** approve | reject | acknowledge */
+  action: string;
+  note?: string;
+}
+
 export type SignatureRequestInputSignatoriesItem = {
   userId: number;
   order: number;
@@ -723,6 +795,13 @@ status?: string;
 responsibleId?: number | null;
 page?: number;
 limit?: number;
+};
+
+export type ListWorkflowInstancesParams = {
+/**
+ * @nullable
+ */
+pendingForMe?: boolean | null;
 };
 
 export type ListTasksParams = {

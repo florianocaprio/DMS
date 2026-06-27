@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -8,6 +8,7 @@ export const signatureRequestsTable = pgTable("signature_requests", {
   status: text("status").notNull().default("pending"),
   type: text("type").notNull().default("internal"),
   signatories: jsonb("signatories").notNull().default([]),
+  requireAll: boolean("require_all").notNull().default(true),
   requestedById: integer("requested_by_id").notNull(),
   note: text("note"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),

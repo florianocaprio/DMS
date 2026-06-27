@@ -55,13 +55,25 @@ router.post("/signatures/:id/sign", async (req, res): Promise<void> => {
   }
 
   const allSigned = sigs.every((s) => s.status === "signed");
+  const anySigned = sigs.some((s) => s.status === "signed");
   const anyRejected = sigs.some((s) => s.status === "rejected");
-  const newStatus = anyRejected ? "rejected" : allSigned ? "completed" : "pending";
+  const allRejected = sigs.every((s) => s.status === "rejected");
+  const requireAll = sr.requireAll ?? true;
+
+  let newStatus: string;
+  if (requireAll) {
+    // every signatory must sign; a single rejection blocks the request
+    newStatus = anyRejected ? "rejected" : allSigned ? "completed" : "pending";
+  } else {
+    // a single signature is sufficient; only blocked if everyone rejects
+    newStatus = anySigned ? "completed" : allRejected ? "rejected" : "pending";
+  }
+  const isResolved = newStatus !== "pending";
 
   const [updated] = await db.update(signatureRequestsTable).set({
     signatories: sigs,
     status: newStatus,
-    completedAt: (allSigned || anyRejected) ? new Date() : null,
+    completedAt: isResolved ? new Date() : null,
   }).where(eq(signatureRequestsTable.id, id)).returning();
 
   const userMap = Object.fromEntries((await db.select().from(usersTable)).map((u) => [u.id, u]));
