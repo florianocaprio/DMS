@@ -1,7 +1,7 @@
 - [Protocol↔dossier primary invariant](protocol-dossier-primary.md) — exactly one primary membership; first filing always primary; mutate in a tx so protocols.dossierId never desyncs from the junction.
 - [Drizzle onConflict empty set](drizzle-onconflict-empty-set.md) — onConflictDoUpdate with `set: {}` crashes "No values to set"; use onConflictDoNothing for the no-op branch.
 - [Duplicate artifact workflows](duplicate-artifact-workflows.md) — artifact-managed `artifacts/<dir>: <name>` workflows can collide on ports with hand-made ones; keep only the artifact-managed set.
-- [First-run setup (bootstrap)](first-run-setup.md) — setup mode = no admin row exists; public self-gating /auth/bootstrap endpoints create users (no app session); first admin locks it. No boot-time admin auto-seed.
+- [First-run default-admin setup](first-run-setup.md) — boot seeds a passwordless default admin; setupMode = local admin (username set) with null passwordHash; SSO admins excluded.
 - [Vitest workspace setup](vitest-workspace-setup.md) — api-server tests need `deps.inline: [/@workspace\//]` (raw-TS exports); supertest the exported `app` (cron/listen live in index.ts), real Postgres, clean up rows.
 - [Clerk auth + current-user replacement](clerk-auth-current-user.md) — Google SSO domain-locked; replacing hardcoded current user must grep named constants (CURRENT_USER_ID) too, not just `1`; @clerk/react legacy entrypoint for authenticateWithRedirect.
 - [Document MOVE with effective membership](document-move-effective-membership.md) — docs read home∪junction; a MOVE must delete source+target junction rows in a tx, not just repoint documents.dossierId.

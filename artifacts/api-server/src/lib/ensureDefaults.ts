@@ -1,7 +1,8 @@
 import { db } from "@workspace/db";
-import { dossiersTable } from "@workspace/db";
+import { dossiersTable, usersTable } from "@workspace/db";
 import { and, eq, ne, asc } from "drizzle-orm";
 import { logger } from "./logger";
+import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_NAME, DEFAULT_ADMIN_USERNAME } from "./bootstrap";
 
 const DEFAULT_DOSSIER_TITLE = "Archivio Documenti";
 
@@ -76,5 +77,52 @@ export async function ensureDefaultDossier(): Promise<void> {
     logger.info({ id: created?.id }, "ensureDefaultDossier: created default dossier");
   } catch (err) {
     logger.error({ err }, "ensureDefaultDossier failed");
+  }
+}
+
+/**
+ * Ensures a default administrator account exists on a fresh install so the very
+ * first visitor can take ownership of the system. The account is seeded WITHOUT
+ * a password (passwordHash null); the public /auth/bootstrap flow then prompts
+ * to set one before first access. Idempotent and conservative: if ANY admin
+ * already exists (local or Clerk/Google), nothing is seeded, so configured
+ * deployments are never touched.
+ */
+export async function ensureDefaultAdmin(): Promise<void> {
+  try {
+    const [existingAdmin] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(eq(usersTable.role, "admin"))
+      .limit(1);
+    if (existingAdmin) return;
+    const inserted = await db
+      .insert(usersTable)
+      .values({
+        username: DEFAULT_ADMIN_USERNAME,
+        email: DEFAULT_ADMIN_EMAIL,
+        name: DEFAULT_ADMIN_NAME,
+        role: "admin",
+        passwordHash: null,
+        mustChangePassword: false,
+        isActive: true,
+      })
+      .onConflictDoNothing()
+      .returning({ id: usersTable.id });
+    if (inserted.length === 0) {
+      // No admin exists yet the insert no-op'd: a non-admin row already owns the
+      // default username/email. Surface it so the stuck state isn't silent.
+      logger.warn(
+        { username: DEFAULT_ADMIN_USERNAME, email: DEFAULT_ADMIN_EMAIL },
+        "ensureDefaultAdmin: default admin insert was a no-op (username/email already taken by a non-admin)",
+      );
+      return;
+    }
+    logger.info(
+      { id: inserted[0]?.id, username: DEFAULT_ADMIN_USERNAME },
+      "ensureDefaultAdmin: seeded default admin awaiting password setup",
+    );
+  } catch (err) {
+    logger.error({ err }, "ensureDefaultAdmin failed");
   }
 }

@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/password";
-import { adminExists, validateBootstrapInput } from "../lib/bootstrap";
+import { getAdminAwaitingPasswordSetup } from "../lib/bootstrap";
 
 const router = Router();
 
@@ -74,64 +74,70 @@ router.post("/auth/logout", async (_req, res): Promise<void> => {
   res.status(204).end();
 });
 
-// GET /auth/bootstrap — reports whether the app still needs first-run setup
-// (no administrator account exists yet). Public.
+// GET /auth/bootstrap — reports whether the app still needs first-run setup: a
+// default administrator exists but its password has not been set yet. Returns
+// the username to show on the set-password screen. Public.
 router.get("/auth/bootstrap", async (_req, res): Promise<void> => {
-  res.json({ setupMode: !(await adminExists()) });
+  const admin = await getAdminAwaitingPasswordSetup();
+  if (!admin) {
+    res.json({ setupMode: false });
+    return;
+  }
+  res.json({ setupMode: true, username: admin.username });
 });
 
-// POST /auth/bootstrap — first-run user creation. Only allowed while no admin
-// exists; creating an administrator completes setup and locks this endpoint, so
-// from then on access requires real credentials. Public (used before any login).
+// POST /auth/bootstrap — first-run: set the default administrator's password.
+// Allowed only while that admin still has no password; setting it completes
+// setup, logs the admin in (signed session cookie) and locks this endpoint.
+// Public (used before any login).
 router.post("/auth/bootstrap", async (req, res): Promise<void> => {
-  if (await adminExists()) {
-    res.status(403).json({ error: "Configurazione già completata. Accedi con le tue credenziali." });
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
+  if (password.length < 8) {
+    res.status(400).json({ error: "La password deve contenere almeno 8 caratteri" });
     return;
   }
-
-  const parsed = validateBootstrapInput(req.body);
-  if (!parsed.ok) {
-    res.status(400).json({ error: parsed.error });
-    return;
-  }
-  const { name, email, username, password, role } = parsed.value;
 
   // Hash outside the transaction so the (slow) scrypt work doesn't hold the
   // advisory lock.
   const passwordHash = await hashPassword(password);
 
   try {
-    // Serialize all bootstrap creations and re-check admin existence INSIDE the
-    // locked transaction. This closes the check-then-insert race: once a request
-    // commits the first admin, every subsequent locked request sees it and is
-    // rejected, so no extra unauthenticated accounts can slip through.
+    // Serialize concurrent first-run requests and re-check the pending admin
+    // INSIDE the locked transaction. This closes the check-then-update race:
+    // once one request sets the password, every later locked request sees a
+    // configured admin and is rejected.
     const outcome = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(${BOOTSTRAP_ADVISORY_LOCK_KEY})`);
-      const [existingAdmin] = await tx
-        .select({ id: usersTable.id })
+      const [admin] = await tx
+        .select()
         .from(usersTable)
-        .where(eq(usersTable.role, "admin"))
+        .where(
+          and(
+            eq(usersTable.role, "admin"),
+            isNull(usersTable.passwordHash),
+            isNotNull(usersTable.username),
+          ),
+        )
+        .orderBy(asc(usersTable.id))
         .limit(1);
-      if (existingAdmin) return { locked: true as const };
-      const [user] = await tx
-        .insert(usersTable)
-        .values({ name, email, username, passwordHash, role, isActive: true })
+      if (!admin) return { locked: true as const };
+      const [updated] = await tx
+        .update(usersTable)
+        .set({ passwordHash, mustChangePassword: false, lastLoginAt: new Date() })
+        .where(eq(usersTable.id, admin.id))
         .returning();
-      return { locked: false as const, user };
+      return { locked: false as const, user: updated };
     });
 
     if (outcome.locked) {
       res.status(403).json({ error: "Configurazione già completata. Accedi con le tue credenziali." });
       return;
     }
-    res.status(201).json({ user: publicUser(outcome.user), setupComplete: role === "admin" });
+    res.cookie(LOCAL_SESSION_COOKIE, String(outcome.user.id), cookieOptions());
+    res.status(200).json(publicUser(outcome.user));
   } catch (err) {
-    if ((err as { code?: string })?.code === "23505") {
-      res.status(409).json({ error: "Nome utente o email già esistenti" });
-      return;
-    }
-    req.log.error({ err }, "bootstrap user creation failed");
-    res.status(500).json({ error: "Errore durante la creazione dell'utenza" });
+    req.log.error({ err }, "admin password setup failed");
+    res.status(500).json({ error: "Errore durante l'impostazione della password" });
   }
 });
 

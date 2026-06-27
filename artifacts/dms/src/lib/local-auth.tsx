@@ -13,24 +13,18 @@ export interface LocalUser {
   mustChangePassword: boolean;
 }
 
-export interface BootstrapUserInput {
-  name: string;
-  email: string;
-  username: string;
-  password: string;
-  role: string;
-}
-
 interface LocalAuthValue {
   user: LocalUser | null;
   loading: boolean;
-  /** True on a fresh install while no administrator exists yet (first-run setup). */
+  /** True on a fresh install while the default admin still needs a password. */
   setupMode: boolean;
+  /** Username of the default admin awaiting password setup (first-run only). */
+  setupUsername: string | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  /** First-run only: create an account. Returns whether setup is now complete. */
-  createBootstrapUser: (data: BootstrapUserInput) => Promise<{ user: LocalUser; setupComplete: boolean }>;
+  /** First-run only: set the default admin password; logs the admin in on success. */
+  setupAdminPassword: (password: string) => Promise<void>;
 }
 
 const LocalAuthContext = createContext<LocalAuthValue | null>(null);
@@ -39,6 +33,7 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupMode, setSetupMode] = useState(false);
+  const [setupUsername, setSetupUsername] = useState<string | null>(null);
 
   // Bootstrap: in parallel, detect an existing local session (signed cookie)
   // and whether the app still needs first-run setup (no admin exists yet).
@@ -53,8 +48,9 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         if (sessionRes.ok) setUser((await sessionRes.json()) as LocalUser);
         if (bootstrapRes.ok) {
-          const b = (await bootstrapRes.json()) as { setupMode?: boolean };
+          const b = (await bootstrapRes.json()) as { setupMode?: boolean; username?: string | null };
           setSetupMode(Boolean(b.setupMode));
+          setSetupUsername(b.username ?? null);
         }
       } catch {
         // Network/setup probe failed — fall back to the Clerk flow.
@@ -67,18 +63,21 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const createBootstrapUser = useCallback(async (data: BootstrapUserInput) => {
+  const setupAdminPassword = useCallback(async (password: string) => {
     const r = await fetch(`${API}/auth/bootstrap`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ password }),
     });
     if (!r.ok) {
       const err = (await r.json().catch(() => ({}))) as { error?: string };
-      throw new Error(err.error ?? "Impossibile creare l'utenza");
+      throw new Error(err.error ?? "Impossibile impostare la password");
     }
-    return (await r.json()) as { user: LocalUser; setupComplete: boolean };
+    // The endpoint also sets the session cookie, so we are logged in now.
+    setUser((await r.json()) as LocalUser);
+    setSetupMode(false);
+    setSetupUsername(null);
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -118,7 +117,7 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <LocalAuthContext.Provider value={{ user, loading, setupMode, login, logout, changePassword, createBootstrapUser }}>
+    <LocalAuthContext.Provider value={{ user, loading, setupMode, setupUsername, login, logout, changePassword, setupAdminPassword }}>
       {children}
     </LocalAuthContext.Provider>
   );

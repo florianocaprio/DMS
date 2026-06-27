@@ -1,34 +1,34 @@
 ---
-name: First-run setup (bootstrap) mode
-description: How the DMS decides it needs first-run setup and how that mode locks down.
+name: First-run default-admin setup
+description: How the DMS first-run "set the admin password" flow detects setup mode and why it excludes SSO admins.
 ---
 
-# First-run setup (bootstrap) mode
+# First-run default-admin setup
 
-On a fresh install the app must be enterable with NO account, but only to create
-the system's users; once an administrator exists, access requires credentials.
+On boot, if **no** admin exists, the API seeds a default admin with `username` set
+and `passwordHash = NULL` (a passwordless local account). On first access the app
+shows a "set password" screen (no login needed); the public POST `/auth/bootstrap`
+sets the password (≥8 chars), auto-logs-in via the signed session cookie, and
+locks itself. After that, access requires credentials.
 
-**Rule:** setup mode is active iff **no `users` row with `role='admin'` exists**
-(`adminExists()` in `artifacts/api-server/src/lib/bootstrap.ts`). The trigger for
-lockdown is the existence of an admin row — nothing persistent/flag-based.
+## Setup-mode detection (the key invariant)
+"Needs setup" = a LOCAL admin awaiting a password:
+`role='admin' AND passwordHash IS NULL AND username IS NOT NULL` (lowest id wins).
 
-**How to apply:**
-- The bootstrap endpoints `GET/POST /api/auth/bootstrap` are PUBLIC (in
-  `requireAuth`'s `PUBLIC_PATHS`) but self-gate: `POST` returns 403 once an admin
-  exists. They never grant an app session — setup users are created via these
-  public endpoints, then the user logs in normally. This avoids needing a
-  synthetic/bootstrap user id for the many NOT NULL `created_by`-style FKs.
-- `POST` returns `{ user, setupComplete }`; `setupComplete` is true when the
-  created role is `admin`. The frontend (`SetupScreen` in `App.tsx`) lets you add
-  several users and, on the first admin, shows a completion screen → reload →
-  login flow.
-- There is intentionally **no boot-time admin auto-seed** (the old
-  `ensureLocalAdmin` boot-time seeding was removed; auto-creating an admin is
-  incompatible with "first run has no account").
-- The bootstrap creation is atomic: a transaction takes a Postgres advisory lock
-  (`pg_advisory_xact_lock`) and re-checks admin existence inside the lock before
-  inserting, so concurrent requests can't create extra accounts after the first
-  admin commits.
+**Why the `username IS NOT NULL` clause matters:** Clerk/Google SSO admins
+legitimately have `passwordHash = NULL` (they never use a password) AND a null
+username. Detecting setup mode on null-password alone would wrongly flag an
+SSO-only deployment as "needs setup". Requiring a non-null username scopes
+detection to the seeded local default admin only.
 
-**Why:** user requirement — clone the repo, run with an empty DB, enter without
-login, create the users (≥1 admin), then it locks to credential-only access.
+**How to apply:** keep the same predicate in lockstep across the GET probe, the
+POST set-password transaction, and the `ensureDefaultAdmin` seed guard. The seed
+only runs when zero admins exist, so configured deployments (dev DB with Clerk
+admins) are never touched and never enter setup mode.
+
+## Startup ordering (don't regress)
+`ensureDefaultAdmin()` must complete **before** `app.listen` serves traffic.
+**Why:** the frontend probes `/auth/bootstrap` once on mount; if seeding is
+fire-and-forget in the listen callback, a cold-start first visitor can race and
+get dropped into normal login instead of the set-password screen until a manual
+reload.

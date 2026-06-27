@@ -361,172 +361,89 @@ function ChangePasswordScreen() {
   );
 }
 
-const SETUP_ROLES = [
-  { value: "admin", label: "Amministratore" },
-  { value: "manager", label: "Responsabile" },
-  { value: "collaborator", label: "Collaboratore" },
-  { value: "viewer", label: "Visualizzatore" },
-];
-
-function SetupScreen() {
-  const { createBootstrapUser } = useLocalAuth();
-  const [form, setForm] = useState({ name: "", email: "", username: "", password: "", role: "admin" });
-  const [created, setCreated] = useState<Array<{ name: string; username: string; role: string }>>([]);
-  const [completed, setCompleted] = useState(false);
+function SetPasswordScreen() {
+  const { setupUsername, setupAdminPassword } = useLocalAuth();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const roleLabel = (v: string) => SETUP_ROLES.find((r) => r.value === v)?.label ?? v;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setError(null);
-    if (form.username.trim().length < 3) {
-      setError("Il nome utente deve contenere almeno 3 caratteri");
+    if (password.length < 8) {
+      setError("La password deve contenere almeno 8 caratteri");
       return;
     }
-    if (form.password.length < 8) {
-      setError("La password deve contenere almeno 8 caratteri");
+    if (password !== confirm) {
+      setError("Le password non coincidono");
       return;
     }
     setSubmitting(true);
     try {
-      const res = await createBootstrapUser(form);
-      setCreated((c) => [...c, { name: form.name, username: form.username, role: form.role }]);
-      if (res.setupComplete) {
-        setCompleted(true);
-      } else {
-        // Keep configuring: reset the form for the next account.
-        setForm({ name: "", email: "", username: "", password: "", role: "admin" });
-      }
+      // On success the auth context sets the session user and the app enters.
+      await setupAdminPassword(password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossibile creare l'utenza");
-    } finally {
+      setError(err instanceof Error ? err.message : "Impossibile impostare la password");
       setSubmitting(false);
     }
   };
-
-  if (completed) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background px-4">
-        <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-sm p-8 flex flex-col items-center text-center">
-          <img src={logoUrl} alt="Angeli in Moto" className="w-16 h-16 rounded-xl object-contain mb-5" />
-          <h1 className="text-xl font-bold text-foreground">Configurazione completata</h1>
-          <p className="text-sm text-muted-foreground mt-1.5 mb-7">
-            L'amministratore è stato creato. Da ora l'accesso richiede le credenziali: accedi con
-            l'utenza appena creata.
-          </p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
-          >
-            <Lock className="w-4 h-4" />
-            Vai al login
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-sm p-8 flex flex-col items-center text-center">
         <img src={logoUrl} alt="Angeli in Moto" className="w-16 h-16 rounded-xl object-contain mb-5" />
-        <h1 className="text-xl font-bold text-foreground">Configurazione iniziale</h1>
+        <h1 className="text-xl font-bold text-foreground">Primo avvio</h1>
         <p className="text-sm text-muted-foreground mt-1.5 mb-6">
-          Primo avvio: crea le utenze del sistema. Devi creare almeno un'utenza amministratore.
-          Quando crei l'amministratore la configurazione si chiude e l'accesso richiederà le credenziali.
+          Imposta la password dell'amministratore per iniziare. Dopo l'accesso potrai configurare il
+          resto del sistema.
         </p>
-
-        {created.length > 0 && (
-          <div className="w-full mb-5 text-left">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Utenze create</p>
-            <ul className="space-y-1">
-              {created.map((u, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between text-sm rounded-lg border border-border px-3 py-2"
-                >
-                  <span className="font-medium text-foreground">{u.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {u.username} · {roleLabel(u.role)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         <form onSubmit={onSubmit} className="w-full space-y-3 text-left">
           <div>
-            <label htmlFor="su-name" className="block text-xs font-medium text-foreground mb-1">Nome completo</label>
+            <label htmlFor="sp-username" className="block text-xs font-medium text-foreground mb-1">Nome utente</label>
             <input
-              id="su-name"
+              id="sp-username"
               type="text"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
-              placeholder="Mario Rossi"
-            />
-          </div>
-          <div>
-            <label htmlFor="su-email" className="block text-xs font-medium text-foreground mb-1">Email</label>
-            <input
-              id="su-email"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
-              placeholder="email@organizzazione.it"
-            />
-          </div>
-          <div>
-            <label htmlFor="su-username" className="block text-xs font-medium text-foreground mb-1">Nome utente</label>
-            <input
-              id="su-username"
-              type="text"
+              value={setupUsername ?? "admin"}
+              readOnly
               autoComplete="username"
-              value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
-              placeholder="mario.rossi"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-muted text-sm text-muted-foreground outline-none cursor-not-allowed"
             />
           </div>
           <div>
-            <label htmlFor="su-password" className="block text-xs font-medium text-foreground mb-1">Password</label>
+            <label htmlFor="sp-password" className="block text-xs font-medium text-foreground mb-1">Password</label>
             <input
-              id="su-password"
+              id="sp-password"
               type="password"
               autoComplete="new-password"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
               placeholder="Almeno 8 caratteri"
             />
           </div>
           <div>
-            <label htmlFor="su-role" className="block text-xs font-medium text-foreground mb-1">Ruolo</label>
-            <select
-              id="su-role"
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+            <label htmlFor="sp-confirm" className="block text-xs font-medium text-foreground mb-1">Conferma password</label>
+            <input
+              id="sp-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
-            >
-              {SETUP_ROLES.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
+              placeholder="Ripeti la password"
+            />
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
           <button
             type="submit"
-            disabled={submitting || !form.name || !form.email || !form.username || !form.password}
+            disabled={submitting || !password || !confirm}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {form.role === "admin" ? "Crea amministratore e completa" : "Crea utenza"}
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            Imposta password e accedi
           </button>
         </form>
       </div>
@@ -541,10 +458,10 @@ function GatedApp() {
   // logged-in local admin never briefly sees the Clerk login screen.
   if (localLoading) return <FullscreenLoader />;
 
-  // First run: no administrator exists yet. Allow entering without an account,
-  // but only to create the system's users (the bootstrap endpoints enforce this
-  // server-side). Once an admin is created, setup closes and login is required.
-  if (setupMode) return <SetupScreen />;
+  // First run: the default administrator exists but has no password yet. Show the
+  // set-password screen (no login required); the bootstrap endpoint enforces this
+  // server-side and logs the admin in once the password is set.
+  if (setupMode) return <SetPasswordScreen />;
 
   // A valid local session bypasses Clerk entirely (no domain guard — local
   // accounts are provisioned explicitly). Force a password change first when the

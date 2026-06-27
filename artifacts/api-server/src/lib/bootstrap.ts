@@ -1,60 +1,36 @@
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 
-// Roles that may be assigned to an account during first-run setup.
-export const BOOTSTRAP_ROLES = ["admin", "manager", "collaborator", "viewer"] as const;
-export type BootstrapRole = (typeof BOOTSTRAP_ROLES)[number];
+// Identity of the default administrator seeded on a fresh install. The password
+// is intentionally left unset so the first visitor must choose it via the public
+// /auth/bootstrap endpoints (see routes/auth.ts).
+export const DEFAULT_ADMIN_USERNAME = "admin";
+export const DEFAULT_ADMIN_EMAIL = "admin@local";
+export const DEFAULT_ADMIN_NAME = "Amministratore";
 
-export interface BootstrapInput {
-  name: string;
-  email: string;
-  username: string;
-  password: string;
-  role: BootstrapRole;
-}
+export type AdminAwaitingSetup = typeof usersTable.$inferSelect;
 
 /**
- * First-run setup is active while NO administrator account exists yet. As soon
- * as an admin row is present the app is considered configured and the public
- * bootstrap endpoints lock themselves; access then requires real credentials.
+ * First-run setup is active while a LOCAL administrator account exists that has
+ * no password yet — the seeded default admin. Clerk/Google admins are excluded
+ * (they have a null username and authenticate via SSO, never a password), so an
+ * existing SSO-only deployment is never mistaken for "needs setup". Once the
+ * password is set the account is configured and the public bootstrap endpoints
+ * lock themselves; access then requires real credentials. When several pending
+ * admins somehow exist, the lowest id wins so the choice is deterministic.
  */
-export async function adminExists(): Promise<boolean> {
+export async function getAdminAwaitingPasswordSetup(): Promise<AdminAwaitingSetup | null> {
   const [row] = await db
-    .select({ id: usersTable.id })
+    .select()
     .from(usersTable)
-    .where(eq(usersTable.role, "admin"))
+    .where(
+      and(
+        eq(usersTable.role, "admin"),
+        isNull(usersTable.passwordHash),
+        isNotNull(usersTable.username),
+      ),
+    )
+    .orderBy(asc(usersTable.id))
     .limit(1);
-  return Boolean(row);
-}
-
-/**
- * Validate and normalize a first-run user-creation payload. Pure (no DB), so it
- * can be unit-tested directly without manipulating global setup state.
- */
-export function validateBootstrapInput(
-  body: unknown,
-): { ok: true; value: BootstrapInput } | { ok: false; error: string } {
-  const b = (body ?? {}) as Record<string, unknown>;
-  const name = typeof b.name === "string" ? b.name.trim() : "";
-  const email = typeof b.email === "string" ? b.email.trim().toLowerCase() : "";
-  const username = typeof b.username === "string" ? b.username.trim().toLowerCase() : "";
-  const password = typeof b.password === "string" ? b.password : "";
-  const role = typeof b.role === "string" ? b.role : "";
-
-  if (!name || !email || !username || !password) {
-    return { ok: false, error: "Nome, email, nome utente e password sono obbligatori" };
-  }
-  if (!email.includes("@")) {
-    return { ok: false, error: "Email non valida" };
-  }
-  if (username.length < 3) {
-    return { ok: false, error: "Il nome utente deve contenere almeno 3 caratteri" };
-  }
-  if (password.length < 8) {
-    return { ok: false, error: "La password deve contenere almeno 8 caratteri" };
-  }
-  if (!(BOOTSTRAP_ROLES as readonly string[]).includes(role)) {
-    return { ok: false, error: "Ruolo non valido" };
-  }
-  return { ok: true, value: { name, email, username, password, role: role as BootstrapRole } };
+  return row ?? null;
 }
