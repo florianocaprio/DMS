@@ -11,10 +11,12 @@ import {
 } from "@clerk/react";
 import { useSignIn } from "@clerk/react/legacy";
 import { publishableKeyFromHost } from "@clerk/react/internal";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { LocalAuthProvider, useLocalAuth } from "@/lib/local-auth";
 import logoUrl from "@assets/Logo_Original_tondo_1782541417598.png";
 import Dashboard from "@/pages/dashboard";
 import NotFound from "@/pages/not-found";
@@ -104,6 +106,12 @@ function GoogleIcon() {
 function LoginScreen() {
   const { signIn, isLoaded } = useSignIn();
   const [loc] = useLocation();
+  const { login } = useLocalAuth();
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const onGoogle = () => {
     if (!isLoaded || !signIn) return;
@@ -117,14 +125,30 @@ function LoginScreen() {
     });
   };
 
+  const onLocalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await login(username, password);
+      // On success the LocalAuthProvider state flips and the app renders.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Accesso non riuscito");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-sm p-8 flex flex-col items-center text-center">
         <img src={logoUrl} alt="Angeli in Moto" className="w-16 h-16 rounded-xl object-contain mb-5" />
         <h1 className="text-xl font-bold text-foreground">ProtocolloDigitale</h1>
         <p className="text-sm text-muted-foreground mt-1.5 mb-7">
-          Accedi con il tuo account aziendale per gestire protocolli, documenti e fascicoli.
+          Accedi per gestire protocolli, documenti e fascicoli.
         </p>
+
         <button
           type="button"
           onClick={onGoogle}
@@ -134,8 +158,51 @@ function LoginScreen() {
           <GoogleIcon />
           Continua con Google
         </button>
+
+        <div className="flex items-center gap-3 w-full my-5">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">oppure</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        <form onSubmit={onLocalSubmit} className="w-full space-y-3 text-left">
+          <div>
+            <label htmlFor="username" className="block text-xs font-medium text-foreground mb-1">Nome utente</label>
+            <input
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="admin"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-xs font-medium text-foreground mb-1">Password</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="••••••••"
+            />
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting || !username || !password}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            Accedi
+          </button>
+        </form>
+
         <p className="text-xs text-muted-foreground mt-5">
-          Accesso riservato agli account <span className="font-medium text-foreground">@{ALLOWED_DOMAIN}</span>
+          L'accesso con Google è riservato agli account <span className="font-medium text-foreground">@{ALLOWED_DOMAIN}</span>
         </p>
       </div>
     </div>
@@ -204,6 +271,16 @@ function Router() {
 }
 
 function GatedApp() {
+  const { user: localUser, loading: localLoading } = useLocalAuth();
+
+  // Wait for the local-session probe before deciding which flow to show, so a
+  // logged-in local admin never briefly sees the Clerk login screen.
+  if (localLoading) return <FullscreenLoader />;
+
+  // A valid local session bypasses Clerk entirely (no domain guard — local
+  // accounts are provisioned explicitly).
+  if (localUser) return <Router />;
+
   return (
     <>
       <ClerkLoading>
@@ -255,9 +332,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={basePath}>
-          <ClerkProviderWithRoutes />
-        </WouterRouter>
+        <LocalAuthProvider>
+          <WouterRouter base={basePath}>
+            <ClerkProviderWithRoutes />
+          </WouterRouter>
+        </LocalAuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

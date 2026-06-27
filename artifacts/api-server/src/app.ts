@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
@@ -42,6 +43,8 @@ app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+// Parse signed cookies (local session). SESSION_SECRET signs the session cookie.
+app.use(cookieParser(process.env.SESSION_SECRET));
 
 // Resolve the publishable key from the incoming request host so the same
 // server can serve multiple Clerk custom domains. getClerkProxyHost is shared

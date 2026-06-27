@@ -8,7 +8,11 @@ import { eq } from "drizzle-orm";
 const ALLOWED_DOMAIN = "angeliinmoto.it";
 
 // Paths (relative to the /api mount) that are reachable without authentication.
-const PUBLIC_PATHS = new Set(["/healthz"]);
+// The /auth/* endpoints handle the local login flow themselves.
+const PUBLIC_PATHS = new Set(["/healthz", "/auth/login", "/auth/logout", "/auth/session"]);
+
+// Signed cookie carrying the local-session user id (set by routes/auth.ts).
+const LOCAL_SESSION_COOKIE = "pd_session";
 
 // Emails that are always provisioned (and kept) as system administrators.
 const ADMIN_EMAILS = new Set(["info@angeliinmoto.it"]);
@@ -118,6 +122,27 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   if (PUBLIC_PATHS.has(req.path)) {
     next();
     return;
+  }
+
+  // Local session (signed cookie) takes precedence over Clerk. This lets the
+  // admin sign in with username/password without a Clerk/Google account.
+  const localRaw = req.signedCookies?.[LOCAL_SESSION_COOKIE];
+  if (localRaw) {
+    const localId = Number(localRaw);
+    if (!Number.isNaN(localId)) {
+      const [row] = await db
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, localId))
+        .limit(1);
+      if (row && row.isActive) {
+        req.currentUser = { id: row.id, email: row.email, name: row.name, role: row.role };
+        req.currentUserId = row.id;
+        next();
+        return;
+      }
+    }
+    // Invalid/stale local cookie: fall through to Clerk rather than hard-failing.
   }
 
   const auth = getAuth(req);
