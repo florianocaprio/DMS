@@ -1,4 +1,7 @@
 import { db, protocolDossiersTable, protocolsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type EffectiveMembership = {
   id: number | null;
@@ -41,4 +44,29 @@ export async function getEffectiveMemberships(): Promise<EffectiveMembership[]> 
     }
   }
   return result;
+}
+
+/**
+ * Ensures the junction is authoritative for a protocol before mutating its
+ * memberships. A legacy protocol may have `protocols.dossierId` set with no
+ * junction rows; this materializes that legacy filing as a real primary
+ * membership (in-transaction) so add/remove/primary logic operates on a
+ * consistent junction. No-op when junction rows already exist or there is no
+ * legacy dossierId.
+ */
+export async function materializeLegacyMembership(
+  tx: Tx,
+  protocol: { id: number; dossierId: number | null; registeredById: number | null },
+): Promise<void> {
+  if (protocol.dossierId == null) return;
+  const existing = await tx
+    .select({ id: protocolDossiersTable.id })
+    .from(protocolDossiersTable)
+    .where(eq(protocolDossiersTable.protocolId, protocol.id))
+    .limit(1);
+  if (existing.length > 0) return;
+  await tx
+    .insert(protocolDossiersTable)
+    .values({ protocolId: protocol.id, dossierId: protocol.dossierId, isPrimary: true, addedById: protocol.registeredById ?? 1 })
+    .onConflictDoNothing({ target: [protocolDossiersTable.protocolId, protocolDossiersTable.dossierId] });
 }

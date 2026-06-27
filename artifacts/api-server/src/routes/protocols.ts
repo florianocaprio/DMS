@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { protocolsTable, usersTable, dossiersTable, classificationsTable, protocolDossiersTable, activityLogTable } from "@workspace/db";
 import { eq, sql, desc, and } from "drizzle-orm";
 import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
-import { getEffectiveMemberships } from "../lib/memberships";
+import { getEffectiveMemberships, materializeLegacyMembership } from "../lib/memberships";
 
 const router = Router();
 
@@ -142,12 +142,17 @@ router.patch("/protocols/:id", async (req, res): Promise<void> => {
   if (assignedToId !== undefined) updates.assignedToId = assignedToId;
   if (notes !== undefined) updates.notes = notes;
   const [prev] = await db.select().from(protocolsTable).where(eq(protocolsTable.id, id)).limit(1);
+  if (!prev) { res.status(404).json({ error: "Not found" }); return; }
 
-  // Changing dossierId via PATCH = set/replace primary membership
-  if (dossierId !== undefined) {
-    const newPrimary = dossierId == null ? null : Number(dossierId);
-    updates.dossierId = newPrimary;
-    await db.transaction(async (tx) => {
+  // Existence is confirmed above, so the junction is only ever mutated for a
+  // real protocol. The protocol update and the primary-membership change run in
+  // one transaction so protocols.dossierId and the junction stay atomic.
+  let p: typeof prev | undefined;
+  await db.transaction(async (tx) => {
+    // Changing dossierId via PATCH = set/replace primary membership
+    if (dossierId !== undefined) {
+      const newPrimary = dossierId == null ? null : Number(dossierId);
+      updates.dossierId = newPrimary;
       // Always demote existing primaries first so the junction never keeps a
       // stale primary that disagrees with protocols.dossierId (incl. null case).
       await tx.update(protocolDossiersTable).set({ isPrimary: false }).where(eq(protocolDossiersTable.protocolId, id));
@@ -156,12 +161,12 @@ router.patch("/protocols/:id", async (req, res): Promise<void> => {
           .values({ protocolId: id, dossierId: newPrimary, isPrimary: true, addedById: 1 })
           .onConflictDoUpdate({ target: [protocolDossiersTable.protocolId, protocolDossiersTable.dossierId], set: { isPrimary: true } });
       }
-    });
-  }
+    }
+    [p] = await tx.update(protocolsTable).set(updates).where(eq(protocolsTable.id, id)).returning();
+  });
 
-  const [p] = await db.update(protocolsTable).set(updates).where(eq(protocolsTable.id, id)).returning();
   if (!p) { res.status(404).json({ error: "Not found" }); return; }
-  if (p.dossierId && p.dossierId !== prev?.dossierId) {
+  if (p.dossierId && p.dossierId !== prev.dossierId) {
     await triggerDossierWorkflows(p.dossierId, "protocol", p.id);
   }
   res.json(fmtProtocol(p, {}, {}, {}));
@@ -213,6 +218,9 @@ router.post("/protocols/:id/dossiers", async (req, res): Promise<void> => {
 
   const did = Number(dossierId);
   await db.transaction(async (tx) => {
+    // Legacy protocols may have protocols.dossierId set with no junction rows;
+    // materialize that filing first so primary computation below is accurate.
+    await materializeLegacyMembership(tx, p);
     // The first fascicolo a protocol is filed into must always be primary,
     // so protocols.dossierId and the junction never desync (zero-primary state).
     const [existingPrimary] = await tx.select().from(protocolDossiersTable)
@@ -244,11 +252,17 @@ router.delete("/protocols/:id/dossiers/:dossierId", async (req, res): Promise<vo
   const dossierId = Number(req.params.dossierId);
   const [p] = await db.select().from(protocolsTable).where(eq(protocolsTable.id, id)).limit(1);
   if (!p) { res.status(404).json({ error: "Protocollo non trovato" }); return; }
-  const [membership] = await db.select().from(protocolDossiersTable)
-    .where(and(eq(protocolDossiersTable.protocolId, id), eq(protocolDossiersTable.dossierId, dossierId))).limit(1);
-  if (!membership) { res.status(404).json({ error: "Associazione non trovata" }); return; }
 
+  let removed = false;
   await db.transaction(async (tx) => {
+    // A legacy protocol may carry its filing only in protocols.dossierId;
+    // materialize it as a junction row so it can actually be removed here.
+    await materializeLegacyMembership(tx, p);
+    const [membership] = await tx.select().from(protocolDossiersTable)
+      .where(and(eq(protocolDossiersTable.protocolId, id), eq(protocolDossiersTable.dossierId, dossierId))).limit(1);
+    if (!membership) return;
+    removed = true;
+
     await tx.delete(protocolDossiersTable)
       .where(and(eq(protocolDossiersTable.protocolId, id), eq(protocolDossiersTable.dossierId, dossierId)));
 
@@ -265,6 +279,7 @@ router.delete("/protocols/:id/dossiers/:dossierId", async (req, res): Promise<vo
       }
     }
   });
+  if (!removed) { res.status(404).json({ error: "Associazione non trovata" }); return; }
 
   const dossierMap = await getDossierMap();
   await logActivity(id, "protocol_unfiled", `Protocollo ${p.number} rimosso dal fascicolo ${dossierMap[dossierId]?.code ?? dossierId}`);

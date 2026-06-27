@@ -28,3 +28,11 @@ rows, fresh seeds before backfill). All read paths go through a single
 primary derived from `protocols.dossierId` for protocols that have NO junction
 rows — never double-counting protocols that have both. Don't reintroduce
 junction-only reads for counts/filters/lists.
+
+*Write* paths must also tolerate legacy state: before mutating memberships,
+call `materializeLegacyMembership(tx, protocol)` so a `dossierId`-only protocol
+becomes a real primary junction row first. Otherwise DELETE 404s on the legacy
+dossier and POST mis-promotes a new non-primary dossier. Also check protocol
+existence BEFORE opening the mutation transaction (and keep the protocol update
++ junction change in one tx) so a PATCH against a non-existent id can't leave
+orphan junction rows.
