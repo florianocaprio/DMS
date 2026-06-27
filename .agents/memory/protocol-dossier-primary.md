@@ -10,6 +10,13 @@ Rule: a protocol with any memberships has **exactly one** primary; with none it
 has zero. The first dossier a protocol is filed into is always primary,
 regardless of the request's `isPrimary` flag.
 
+**DB-level guard:** a partial unique index `protocol_dossiers_one_primary` on
+`(protocol_id) WHERE is_primary = true` makes Postgres reject a second primary,
+so two-primary corruption is impossible even via direct writes/bad migrations.
+Zero-primary is NOT DB-enforceable (no cross-row "at least one" constraint), so
+app code still owns the recompute. FKs on `protocol_dossiers.protocol_id` /
+`dossier_id` cascade-delete; `dossiers.parent_id` self-FK is ON DELETE SET NULL.
+
 **Why:** an earlier version set `protocols.dossierId` to a freshly-added
 non-primary dossier when the protocol had no dossier yet, producing a
 zero-primary junction that disagreed with `protocols.dossierId`. Architect

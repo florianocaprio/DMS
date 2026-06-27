@@ -1,18 +1,30 @@
-import { pgTable, serial, timestamp, integer, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, timestamp, integer, boolean, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { protocolsTable } from "./protocols";
+import { dossiersTable } from "./dossiers";
 
 export const protocolDossiersTable = pgTable(
   "protocol_dossiers",
   {
     id: serial("id").primaryKey(),
-    protocolId: integer("protocol_id").notNull(),
-    dossierId: integer("dossier_id").notNull(),
+    protocolId: integer("protocol_id")
+      .notNull()
+      .references(() => protocolsTable.id, { onDelete: "cascade" }),
+    dossierId: integer("dossier_id")
+      .notNull()
+      .references(() => dossiersTable.id, { onDelete: "cascade" }),
     isPrimary: boolean("is_primary").notNull().default(false),
     addedById: integer("added_by_id").notNull().default(1),
     addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique("protocol_dossiers_unique").on(t.protocolId, t.dossierId)],
+  (t) => [
+    unique("protocol_dossiers_unique").on(t.protocolId, t.dossierId),
+    uniqueIndex("protocol_dossiers_one_primary")
+      .on(t.protocolId)
+      .where(sql`${t.isPrimary} = true`),
+  ],
 );
 
 export const insertProtocolDossierSchema = createInsertSchema(protocolDossiersTable).omit({
