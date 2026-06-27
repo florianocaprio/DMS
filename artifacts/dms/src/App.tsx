@@ -17,6 +17,7 @@ import SettingsPage from "@/pages/admin/settings";
 import AuditLogPage from "@/pages/admin/audit-log";
 import ImportPage from "@/pages/admin/import";
 import DossierDetail from "@/pages/dossiers/detail";
+import ProtocolDetail from "@/pages/protocols/detail";
 import IntegrityPage from "@/pages/admin/integrity";
 
 const queryClient = new QueryClient({
@@ -34,6 +35,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/protocols" component={ProtocolsPage} />
+        <Route path="/protocols/:id">{(params) => <ProtocolDetail id={params.id} />}</Route>
         <Route path="/documents" component={DocumentsPage} />
         <Route path="/dossiers" component={DossiersPage} />
         <Route path="/dossiers/:id">{(params) => <DossierDetail id={params.id} />}</Route>
