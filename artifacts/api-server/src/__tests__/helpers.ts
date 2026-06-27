@@ -8,11 +8,49 @@ import {
   protocolDossiersTable,
   fileAttachmentsTable,
   activityLogTable,
+  dossierWorkflowRulesTable,
+  dossierWorkflowInstancesTable,
+  signatureRequestsTable,
+  tasksTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import app from "../app";
 
-export const api = request(app);
+/** Header the Clerk test shim (setup.ts) reads to resolve the acting user. */
+export const TEST_CLERK_HEADER = "x-test-clerk-user-id";
+/** Clerk id linked to the default acting user (local id=1). */
+export const DEFAULT_TEST_CLERK_ID = "test-clerk-user-1";
+/** Only this domain passes the auth domain check (see clerkAuth.ts). */
+export const ALLOWED_DOMAIN = "angeliinmoto.it";
+
+type Method = "get" | "post" | "patch" | "put" | "delete";
+
+/**
+ * Builds a supertest agent that authenticates every request as the given Clerk
+ * user by attaching the test header. Pass no argument to get an unauthenticated
+ * agent (exercises the 401 path).
+ */
+export function agentFor(clerkUserId?: string) {
+  const agent = request(app);
+  const wrap =
+    (method: Method) =>
+    (url: string) => {
+      const t = agent[method](url);
+      return clerkUserId ? t.set(TEST_CLERK_HEADER, clerkUserId) : t;
+    };
+  return {
+    get: wrap("get"),
+    post: wrap("post"),
+    patch: wrap("patch"),
+    put: wrap("put"),
+    delete: wrap("delete"),
+  };
+}
+
+/** Default agent: acts as the seeded current user (local id=1). */
+export const api = agentFor(DEFAULT_TEST_CLERK_ID);
+/** Agent with no session, for asserting 401s. */
+export const anonApi = agentFor();
 
 let counter = 0;
 /** Collision-proof suffix for unique columns (protocol.number, dossier.code). */
@@ -22,15 +60,26 @@ export function uniqueSuffix(): string {
 }
 
 /**
- * The API hardcodes the current user to id=1. The seed creates it, but tests
- * must be self-sufficient, so ensure a user with id=1 exists and return its
- * name (used to assert addedByName / uploadedByName / removedByName).
+ * Ensures a local user with id=1 exists, linked to the default test Clerk id and
+ * on the allowed domain so the default `api` agent authenticates as it. Returns
+ * its name (used to assert addedByName / uploadedByName / removedByName).
  */
 export async function ensureCurrentUser(): Promise<{ id: number; name: string }> {
   await db
     .insert(usersTable)
-    .values({ id: 1, email: `current-user-${uniqueSuffix()}@test.local`, name: "Utente Corrente" })
+    .values({
+      id: 1,
+      email: `utente.corrente@${ALLOWED_DOMAIN}`,
+      name: "Utente Corrente",
+      clerkUserId: DEFAULT_TEST_CLERK_ID,
+    })
     .onConflictDoNothing();
+  // The row may have pre-existed (seed) without a clerkUserId or with a
+  // different domain; relink it so the default agent resolves to it.
+  await db
+    .update(usersTable)
+    .set({ clerkUserId: DEFAULT_TEST_CLERK_ID, email: `utente.corrente@${ALLOWED_DOMAIN}` })
+    .where(eq(usersTable.id, 1));
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, 1)).limit(1);
   return { id: u.id, name: u.name };
 }
@@ -50,6 +99,11 @@ export class Fixtures {
   dossierIds: number[] = [];
   protocolIds: number[] = [];
   attachmentIds: number[] = [];
+  userIds: number[] = [];
+  workflowRuleIds: number[] = [];
+  workflowInstanceIds: number[] = [];
+  signatureRequestIds: number[] = [];
+  taskIds: number[] = [];
 
   trackDossier(id: number): number {
     this.dossierIds.push(id);
@@ -94,6 +148,126 @@ export class Fixtures {
     return p;
   }
 
+  /**
+   * Creates a distinct authenticated user (unique clerkUserId + allowed-domain
+   * email) and returns the local row plus the clerkUserId to pass to agentFor.
+   */
+  async createUser(
+    overrides: Partial<typeof usersTable.$inferInsert> = {},
+  ): Promise<typeof usersTable.$inferSelect & { clerkUserId: string }> {
+    const suffix = uniqueSuffix();
+    const clerkUserId = `test-clerk-${suffix}`;
+    const [u] = await db
+      .insert(usersTable)
+      .values({
+        email: `user-${suffix}@${ALLOWED_DOMAIN}`,
+        name: `Utente ${suffix}`,
+        clerkUserId,
+        ...overrides,
+      })
+      .returning();
+    this.userIds.push(u.id);
+    return { ...u, clerkUserId: u.clerkUserId ?? clerkUserId };
+  }
+
+  async createWorkflowRule(
+    overrides: Partial<typeof dossierWorkflowRulesTable.$inferInsert> = {},
+  ): Promise<typeof dossierWorkflowRulesTable.$inferSelect> {
+    const dossierId = overrides.dossierId ?? (await this.createDossier()).id;
+    const [r] = await db
+      .insert(dossierWorkflowRulesTable)
+      .values({
+        dossierId,
+        type: "approval",
+        name: "Regola di test",
+        appliesTo: "both",
+        config: {},
+        ...overrides,
+      })
+      .returning();
+    this.workflowRuleIds.push(r.id);
+    return r;
+  }
+
+  async createWorkflowInstance(
+    overrides: Partial<typeof dossierWorkflowInstancesTable.$inferInsert> = {},
+  ): Promise<typeof dossierWorkflowInstancesTable.$inferSelect> {
+    const ruleId = overrides.ruleId ?? (await this.createWorkflowRule()).id;
+    const dossierId = overrides.dossierId ?? (await this.createDossier()).id;
+    const [inst] = await db
+      .insert(dossierWorkflowInstancesTable)
+      .values({
+        ruleId,
+        dossierId,
+        type: "approval",
+        targetType: "protocol",
+        targetId: 0,
+        status: "pending",
+        participants: [],
+        ...overrides,
+      })
+      .returning();
+    this.workflowInstanceIds.push(inst.id);
+    return inst;
+  }
+
+  async createSignatureRequest(
+    overrides: Partial<typeof signatureRequestsTable.$inferInsert> = {},
+  ): Promise<typeof signatureRequestsTable.$inferSelect> {
+    const [sr] = await db
+      .insert(signatureRequestsTable)
+      .values({
+        documentId: 0,
+        type: "internal",
+        status: "pending",
+        signatories: [],
+        requestedById: 1,
+        ...overrides,
+      })
+      .returning();
+    this.signatureRequestIds.push(sr.id);
+    return sr;
+  }
+
+  async createTask(
+    overrides: Partial<typeof tasksTable.$inferInsert> = {},
+  ): Promise<typeof tasksTable.$inferSelect> {
+    const [t] = await db
+      .insert(tasksTable)
+      .values({
+        title: `Attività ${uniqueSuffix()}`,
+        createdById: 1,
+        ...overrides,
+      })
+      .returning();
+    this.taskIds.push(t.id);
+    return t;
+  }
+
+  /** Reads the participants array straight from the DB. */
+  async getInstanceParticipants(
+    instanceId: number,
+  ): Promise<Array<{ userId: number; status: string }>> {
+    const [inst] = await db
+      .select({ participants: dossierWorkflowInstancesTable.participants })
+      .from(dossierWorkflowInstancesTable)
+      .where(eq(dossierWorkflowInstancesTable.id, instanceId))
+      .limit(1);
+    return (inst?.participants as Array<{ userId: number; status: string }>) ?? [];
+  }
+
+  /** Reads the signatories array straight from the DB. */
+  async getSignatories(
+    signatureRequestId: number,
+  ): Promise<Array<{ userId: number; status: string }>> {
+    const [sr] = await db
+      .select({ signatories: signatureRequestsTable.signatories })
+      .from(signatureRequestsTable)
+      .where(eq(signatureRequestsTable.id, signatureRequestId))
+      .limit(1);
+    return (sr?.signatories as Array<{ userId: number; status: string }>) ?? [];
+  }
+
   /** Reads protocols.dossierId straight from the DB (the legacy primary mirror). */
   async getProtocolDossierId(protocolId: number): Promise<number | null> {
     const [p] = await db
@@ -123,11 +297,31 @@ export class Fixtures {
     if (this.attachmentIds.length) {
       await db.delete(fileAttachmentsTable).where(inArray(fileAttachmentsTable.id, this.attachmentIds));
     }
+    if (this.taskIds.length) {
+      await db.delete(tasksTable).where(inArray(tasksTable.id, this.taskIds));
+    }
+    if (this.workflowInstanceIds.length) {
+      await db.delete(dossierWorkflowInstancesTable).where(inArray(dossierWorkflowInstancesTable.id, this.workflowInstanceIds));
+    }
+    if (this.signatureRequestIds.length) {
+      await db.delete(signatureRequestsTable).where(inArray(signatureRequestsTable.id, this.signatureRequestIds));
+    }
+    if (this.workflowRuleIds.length) {
+      await db.delete(dossierWorkflowRulesTable).where(inArray(dossierWorkflowRulesTable.id, this.workflowRuleIds));
+    }
     if (this.dossierIds.length) {
       await db.delete(dossiersTable).where(inArray(dossiersTable.id, this.dossierIds));
+    }
+    if (this.userIds.length) {
+      await db.delete(usersTable).where(inArray(usersTable.id, this.userIds));
     }
     this.protocolIds = [];
     this.attachmentIds = [];
     this.dossierIds = [];
+    this.userIds = [];
+    this.workflowRuleIds = [];
+    this.workflowInstanceIds = [];
+    this.signatureRequestIds = [];
+    this.taskIds = [];
   }
 }

@@ -4,6 +4,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // Replace @clerk/express with a header-driven shim so tests can act as a
+    // specific authenticated user (see __tests__/setup.ts).
+    setupFiles: ["./src/__tests__/setup.ts"],
     // Silence pino request logging so test output stays readable.
     env: { LOG_LEVEL: "silent" },
     // Workspace packages export raw TypeScript (e.g. "@workspace/db" -> src/index.ts),

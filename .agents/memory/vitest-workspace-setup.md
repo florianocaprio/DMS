@@ -14,4 +14,8 @@ Two non-obvious requirements for it to work:
 
 **Why:** rediscovering the inline-deps requirement and the app-vs-index split (cron/`listen` live in `index.ts`, not `app.ts`) costs real time.
 
-**How to apply:** when adding more backend tests, reuse `src/__tests__/helpers.ts` (Fixtures tracker + `ensureCurrentUser` since routes hardcode user id=1) rather than re-deriving the config.
+**How to apply:** when adding more backend tests, reuse `src/__tests__/helpers.ts` (Fixtures tracker + `ensureCurrentUser`) rather than re-deriving the config.
+
+## Authenticating supertest requests after the Clerk change
+Routes now read `req.currentUserId` from Clerk auth, so unauthenticated supertest calls get 401. A vitest `setupFiles` shim mocks `@clerk/express` to read the acting Clerk id from a request header; `helpers.agentFor(clerkUserId)` builds an agent that attaches it (`api` = default user, `agentFor()` with no id = anon/401 path). Seed users with a `clerkUserId` and an `@angeliinmoto.it` email (the only allowed domain) so `resolveLocalUser` resolves them via its stable-mapping branch and never calls `clerkClient.users.getUser` (the shim throws if it does).
+**Why:** every protected route sits behind `requireAuth`; without the shim the whole suite 401s, and without an allowed-domain email it 403s.
