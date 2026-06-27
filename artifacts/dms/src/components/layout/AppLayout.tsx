@@ -13,6 +13,7 @@ import {
   Bell,
   Settings,
   ClipboardList,
+  Upload,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetCurrentUser } from "@workspace/api-client-react";
@@ -32,6 +33,7 @@ const adminNavigation = [
   { name: "Utenti", href: "/admin/users", icon: Users },
   { name: "Titolario", href: "/admin/classifications", icon: BookOpen },
   { name: "Audit Log", href: "/admin/audit-log", icon: ClipboardList },
+  { name: "Import Regystrum", href: "/admin/import", icon: Upload },
   { name: "Impostazioni", href: "/admin/settings", icon: Settings },
 ];
 

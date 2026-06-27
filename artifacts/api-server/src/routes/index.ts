@@ -15,6 +15,7 @@ import dashboardRouter from "./dashboard";
 import searchRouter from "./search";
 import driveRouter from "./drive";
 import auditRouter from "./audit";
+import importRouter from "./import";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(signaturesRouter);
 router.use(searchRouter);
 router.use(driveRouter);
 router.use(auditRouter);
+router.use(importRouter);
 
 export default router;

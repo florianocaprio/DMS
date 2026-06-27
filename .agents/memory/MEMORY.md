@@ -1,3 +1,1 @@
-- [Workflow PORT requirement](workflow-port.md) — both api-server and dms require PORT env var in the workflow command; omitting it crashes startup.
-- [Orval queryKey requirement](orval-querykey.md) — passing empty `{}` to Orval hook query options causes TS error; must include `queryKey` explicitly.
-- [Seed via scripts package](seed-scripts.md) — seeding must run via `pnpm --filter @workspace/scripts run seed`; root `node -e` can't find `pg`.
+- [Import Regystrum CSV](import-regystrum.md) — CSV format: Suffisso="-" is header row, "1","2"... are attachment rows; status always forced to "imported"

@@ -60,6 +60,9 @@ export function StatusBadge({ status }: { status: string }) {
     case "pending":
     case "in attesa":
       return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">In attesa</Badge>;
+    case "imported":
+    case "importato":
+      return <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 text-xs">Importato</Badge>;
     case "new":
     case "nuovo":
       return <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-xs">Nuovo</Badge>;
