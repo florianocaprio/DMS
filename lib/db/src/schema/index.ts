@@ -9,3 +9,4 @@ export * from "./signatures";
 export * from "./assignments";
 export * from "./attachments";
 export * from "./settings";
+export * from "./auditLog";

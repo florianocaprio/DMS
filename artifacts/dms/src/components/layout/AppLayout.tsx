@@ -12,6 +12,7 @@ import {
   BookOpen,
   Bell,
   Settings,
+  ClipboardList,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetCurrentUser } from "@workspace/api-client-react";
@@ -30,6 +31,7 @@ const navigation = [
 const adminNavigation = [
   { name: "Utenti", href: "/admin/users", icon: Users },
   { name: "Titolario", href: "/admin/classifications", icon: BookOpen },
+  { name: "Audit Log", href: "/admin/audit-log", icon: ClipboardList },
   { name: "Impostazioni", href: "/admin/settings", icon: Settings },
 ];
 
