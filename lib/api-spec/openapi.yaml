@@ -236,6 +236,11 @@ paths:
           in: query
           schema:
             type: ["integer", "null"]
+        - name: dossierIds
+          in: query
+          description: Comma-separated list of dossier ids to filter by
+          schema:
+            type: ["string", "null"]
         - name: assignedToMe
           in: query
           schema:

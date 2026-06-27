@@ -14,6 +14,11 @@ type?: string;
  */
 dossierId?: number | null;
 /**
+ * Comma-separated list of dossier ids to filter by
+ * @nullable
+ */
+dossierIds?: string | null;
+/**
  * @nullable
  */
 assignedToMe?: boolean | null;

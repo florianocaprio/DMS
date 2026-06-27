@@ -18,7 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronRight, Plus, FileText, Filter, X, Paperclip } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronLeft, ChevronRight, Plus, FileText, Filter, X, FolderOpen } from "lucide-react";
 
 const DOC_TYPES = ["delibera", "circolare", "verbale", "contratto", "relazione", "comunicazione", "fattura", "altro"];
 const DOC_STATUSES = [
@@ -77,6 +78,7 @@ export default function DocumentsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterMine, setFilterMine] = useState(false);
+  const [selectedDossiers, setSelectedDossiers] = useState<number[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocItem | null>(null);
   const [form, setForm] = useState({
@@ -89,6 +91,7 @@ export default function DocumentsPage() {
     ...(filterStatus !== "all" && { status: filterStatus }),
     ...(filterType !== "all" && { type: filterType }),
     ...(filterMine && { assignedToMe: true }),
+    ...(selectedDossiers.length > 0 && { dossierIds: selectedDossiers.join(",") }),
   };
 
   const { data, isLoading } = useListDocuments(params, { query: { queryKey: getListDocumentsQueryKey(params) } });
@@ -99,6 +102,12 @@ export default function DocumentsPage() {
   const items = (data?.items ?? []) as DocItem[];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
+  const dossierList = (dossiers?.items ?? []) as Array<{ id: number; code: string; title: string }>;
+
+  function toggleDossier(id: number) {
+    setPage(1);
+    setSelectedDossiers((prev) => (prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]));
+  }
 
   const { attachments, setAttachments, load } = useAttachments(selectedDoc?.id ?? null);
 
@@ -119,7 +128,9 @@ export default function DocumentsPage() {
       },
       {
         onSuccess: () => {
-          qc.invalidateQueries({ queryKey: ["listDocuments"] });
+          qc.invalidateQueries({
+            predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].includes("/documents"),
+          });
           setShowNew(false);
           setForm({ title: "", type: "delibera", subject: "", description: "", confidentiality: "normal", priority: "normal", dossierId: "", responsibleId: "" });
         },
@@ -133,7 +144,11 @@ export default function DocumentsPage() {
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Archivio Documenti</h1>
-            <p className="text-sm text-slate-500 mt-0.5">{total} documenti totali</p>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {selectedDossiers.length > 0
+                ? `${total} documenti in ${selectedDossiers.length} ${selectedDossiers.length === 1 ? "fascicolo" : "fascicoli"}`
+                : `${total} documenti — vista su tutti i fascicoli`}
+            </p>
           </div>
           <Button onClick={() => setShowNew(true)} size="sm" className="gap-1.5">
             <Plus className="h-4 w-4" />
@@ -141,8 +156,40 @@ export default function DocumentsPage() {
           </Button>
         </div>
 
-        <div className="px-6 py-3 flex gap-3 items-center border-b border-slate-100">
+        <div className="px-6 py-3 flex gap-3 items-center border-b border-slate-100 flex-wrap">
           <Filter className="h-4 w-4 text-slate-400" />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                <FolderOpen className="h-3.5 w-3.5" />
+                {selectedDossiers.length > 0 ? `${selectedDossiers.length} fascicoli` : "Tutti i fascicoli"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                <span className="text-xs font-semibold text-slate-600">Filtra per fascicolo</span>
+                {selectedDossiers.length > 0 && (
+                  <button onClick={() => { setSelectedDossiers([]); setPage(1); }} className="text-xs text-primary hover:underline">
+                    Azzera
+                  </button>
+                )}
+              </div>
+              <div className="max-h-72 overflow-y-auto py-1">
+                {dossierList.length === 0 ? (
+                  <p className="px-3 py-4 text-xs text-slate-400 text-center">Nessun fascicolo</p>
+                ) : (
+                  dossierList.map((d) => (
+                    <label key={d.id} className="flex items-start gap-2 px-3 py-1.5 hover:bg-slate-50 cursor-pointer">
+                      <Checkbox checked={selectedDossiers.includes(d.id)} onCheckedChange={() => toggleDossier(d.id)} className="mt-0.5" />
+                      <span className="text-xs text-slate-700 leading-snug">
+                        <span className="font-mono text-slate-400">{d.code}</span> {d.title}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-44 h-8 text-xs">
               <SelectValue placeholder="Stato" />

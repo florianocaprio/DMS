@@ -7,15 +7,27 @@ import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
 const router = Router();
 
 router.get("/documents", async (req, res): Promise<void> => {
-  const { status, type, dossierId, assignedToMe, page = "1", limit = "20" } = req.query;
+  const { status, type, dossierId, dossierIds, assignedToMe, page = "1", limit = "20" } = req.query;
   const pg = Number(page);
   const lm = Number(limit);
   const offset = (pg - 1) * lm;
+
+  const parsedDossierIds =
+    typeof dossierIds === "string"
+      ? dossierIds
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .map((s) => Number(s))
+          .filter((n) => Number.isInteger(n))
+      : [];
+  const dossierIdSet = parsedDossierIds.length > 0 ? new Set(parsedDossierIds) : null;
 
   let rows = await db.select().from(documentsTable).orderBy(desc(documentsTable.createdAt));
   if (status) rows = rows.filter((d) => d.status === status);
   if (type) rows = rows.filter((d) => d.type === type);
   if (dossierId) rows = rows.filter((d) => d.dossierId === Number(dossierId));
+  if (dossierIdSet) rows = rows.filter((d) => d.dossierId !== null && dossierIdSet.has(d.dossierId));
   if (assignedToMe === "true") rows = rows.filter((d) => d.responsibleId === 1);
 
   const total = rows.length;

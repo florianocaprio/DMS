@@ -292,6 +292,7 @@ export const ListDocumentsQueryParams = zod.object({
   "status": zod.coerce.string().optional(),
   "type": zod.coerce.string().optional(),
   "dossierId": zod.coerce.number().nullish(),
+  "dossierIds": zod.coerce.string().nullish().describe('Comma-separated list of dossier ids to filter by'),
   "assignedToMe": zod.coerce.boolean().nullish(),
   "page": zod.coerce.number().default(listDocumentsQueryPageDefault),
   "limit": zod.coerce.number().default(listDocumentsQueryLimitDefault)
