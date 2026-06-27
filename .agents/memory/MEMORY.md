@@ -1,3 +1,4 @@
 - [Protocol↔dossier primary invariant](protocol-dossier-primary.md) — exactly one primary membership; first filing always primary; mutate in a tx so protocols.dossierId never desyncs from the junction.
 - [Drizzle onConflict empty set](drizzle-onconflict-empty-set.md) — onConflictDoUpdate with `set: {}` crashes "No values to set"; use onConflictDoNothing for the no-op branch.
 - [Duplicate artifact workflows](duplicate-artifact-workflows.md) — artifact-managed `artifacts/<dir>: <name>` workflows can collide on ports with hand-made ones; keep only the artifact-managed set.
+- [Vitest workspace setup](vitest-workspace-setup.md) — api-server tests need `deps.inline: [/@workspace\//]` (raw-TS exports); supertest the exported `app` (cron/listen live in index.ts), real Postgres, clean up rows.
