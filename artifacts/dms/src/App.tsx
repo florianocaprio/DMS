@@ -8,7 +8,6 @@ import NotFound from "@/pages/not-found";
 import ProtocolsPage from "@/pages/protocols/index";
 import DocumentsPage from "@/pages/documents/index";
 import DossiersPage from "@/pages/dossiers/index";
-import TasksPage from "@/pages/tasks/index";
 import WorkflowsPage from "@/pages/workflows/index";
 import SignaturesPage from "@/pages/signatures/index";
 import SearchPage from "@/pages/search/index";
@@ -38,7 +37,6 @@ function Router() {
         <Route path="/documents" component={DocumentsPage} />
         <Route path="/dossiers" component={DossiersPage} />
         <Route path="/dossiers/:id">{(params) => <DossierDetail id={params.id} />}</Route>
-        <Route path="/tasks" component={TasksPage} />
         <Route path="/workflows" component={WorkflowsPage} />
         <Route path="/signatures" component={SignaturesPage} />
         <Route path="/search" component={SearchPage} />
