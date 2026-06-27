@@ -14,29 +14,41 @@ import {
   tasksTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
+import { sign } from "cookie-signature";
 import app from "../app";
 
-/** Header the Clerk test shim (setup.ts) reads to resolve the acting user. */
-export const TEST_CLERK_HEADER = "x-test-clerk-user-id";
-/** Clerk id linked to the default acting user (local id=1). */
-export const DEFAULT_TEST_CLERK_ID = "test-clerk-user-1";
-/** Only this domain passes the auth domain check (see clerkAuth.ts). */
+/** Email domain used for test fixtures (no longer an auth gate, just an address). */
 export const ALLOWED_DOMAIN = "angeliinmoto.it";
+/** Local user id of the default acting user (seeded by ensureCurrentUser). */
+export const DEFAULT_TEST_USER_ID = 1;
+
+const LOCAL_SESSION_COOKIE = "pd_session";
+
+/**
+ * Builds the signed-cookie value the server expects for a local session,
+ * mirroring how Express signs cookies with SESSION_SECRET. Tests use this to
+ * authenticate as a specific local user without a full login round-trip.
+ */
+function sessionCookie(userId: number): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET is required to run the auth tests");
+  return `${LOCAL_SESSION_COOKIE}=${encodeURIComponent("s:" + sign(String(userId), secret))}`;
+}
 
 type Method = "get" | "post" | "patch" | "put" | "delete";
 
 /**
- * Builds a supertest agent that authenticates every request as the given Clerk
- * user by attaching the test header. Pass no argument to get an unauthenticated
- * agent (exercises the 401 path).
+ * Builds a supertest agent that authenticates every request as the given local
+ * user by attaching a signed session cookie. Pass no argument to get an
+ * unauthenticated agent (exercises the 401 path).
  */
-export function agentFor(clerkUserId?: string) {
+export function agentFor(userId?: number) {
   const agent = request(app);
   const wrap =
     (method: Method) =>
     (url: string) => {
       const t = agent[method](url);
-      return clerkUserId ? t.set(TEST_CLERK_HEADER, clerkUserId) : t;
+      return userId !== undefined ? t.set("Cookie", sessionCookie(userId)) : t;
     };
   return {
     get: wrap("get"),
@@ -48,7 +60,7 @@ export function agentFor(clerkUserId?: string) {
 }
 
 /** Default agent: acts as the seeded current user (local id=1). */
-export const api = agentFor(DEFAULT_TEST_CLERK_ID);
+export const api = agentFor(DEFAULT_TEST_USER_ID);
 /** Agent with no session, for asserting 401s. */
 export const anonApi = agentFor();
 
@@ -60,9 +72,9 @@ export function uniqueSuffix(): string {
 }
 
 /**
- * Ensures a local user with id=1 exists, linked to the default test Clerk id and
- * on the allowed domain so the default `api` agent authenticates as it. Returns
- * its name (used to assert addedByName / uploadedByName / removedByName).
+ * Ensures a local user with id=1 exists and is active so the default `api` agent
+ * (which signs a session cookie for id=1) authenticates as it. Returns its name
+ * (used to assert addedByName / uploadedByName / removedByName).
  */
 export async function ensureCurrentUser(): Promise<{ id: number; name: string }> {
   await db
@@ -71,14 +83,13 @@ export async function ensureCurrentUser(): Promise<{ id: number; name: string }>
       id: 1,
       email: `utente.corrente@${ALLOWED_DOMAIN}`,
       name: "Utente Corrente",
-      clerkUserId: DEFAULT_TEST_CLERK_ID,
     })
     .onConflictDoNothing();
-  // The row may have pre-existed (seed) without a clerkUserId or with a
-  // different domain; relink it so the default agent resolves to it.
+  // The row may have pre-existed (seed) as inactive or with a different email;
+  // normalise it so the default agent reliably resolves to an active user.
   await db
     .update(usersTable)
-    .set({ clerkUserId: DEFAULT_TEST_CLERK_ID, email: `utente.corrente@${ALLOWED_DOMAIN}` })
+    .set({ email: `utente.corrente@${ALLOWED_DOMAIN}`, isActive: true, mustChangePassword: false })
     .where(eq(usersTable.id, 1));
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, 1)).limit(1);
   return { id: u.id, name: u.name };
@@ -149,25 +160,23 @@ export class Fixtures {
   }
 
   /**
-   * Creates a distinct authenticated user (unique clerkUserId + allowed-domain
-   * email) and returns the local row plus the clerkUserId to pass to agentFor.
+   * Creates a distinct authenticated user and returns the local row. Pass its
+   * `id` to agentFor to act as this user.
    */
   async createUser(
     overrides: Partial<typeof usersTable.$inferInsert> = {},
-  ): Promise<typeof usersTable.$inferSelect & { clerkUserId: string }> {
+  ): Promise<typeof usersTable.$inferSelect> {
     const suffix = uniqueSuffix();
-    const clerkUserId = `test-clerk-${suffix}`;
     const [u] = await db
       .insert(usersTable)
       .values({
         email: `user-${suffix}@${ALLOWED_DOMAIN}`,
         name: `Utente ${suffix}`,
-        clerkUserId,
         ...overrides,
       })
       .returning();
     this.userIds.push(u.id);
-    return { ...u, clerkUserId: u.clerkUserId ?? clerkUserId };
+    return u;
   }
 
   async createWorkflowRule(

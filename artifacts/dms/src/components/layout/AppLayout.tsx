@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   LogOut,
 } from "lucide-react";
-import { useClerk } from "@clerk/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetCurrentUser } from "@workspace/api-client-react";
 import { useLocalAuth } from "@/lib/local-auth";
@@ -44,17 +43,10 @@ const adminNavigation = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: user } = useGetCurrentUser();
-  const { signOut } = useClerk();
-  const { user: localUser, logout: logoutLocal } = useLocalAuth();
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { logout: logoutLocal } = useLocalAuth();
 
-  // Local sessions log out via the local cookie endpoint; Clerk sessions via Clerk.
   const handleSignOut = () => {
-    if (localUser) {
-      void logoutLocal();
-    } else {
-      signOut({ redirectUrl: basePath || "/" });
-    }
+    void logoutLocal();
   };
 
   return (

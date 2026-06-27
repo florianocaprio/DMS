@@ -23,7 +23,7 @@ describe("signatures — sign/reject is scoped to the authenticated user", () =>
 
     // User B is authenticated but is not a signatory: the request should be
     // rejected with a clear error and nothing should change.
-    const resB = await agentFor(userB.clerkUserId)
+    const resB = await agentFor(userB.id)
       .post(`/api/signatures/${sr.id}/sign`)
       .send({ action: "sign" });
     expect(resB.status).toBe(400);
@@ -40,7 +40,7 @@ describe("signatures — sign/reject is scoped to the authenticated user", () =>
       signatories: [{ userId: userA.id, order: 1, status: "pending", signedAt: null, note: null }],
     });
 
-    const resA = await agentFor(userA.clerkUserId)
+    const resA = await agentFor(userA.id)
       .post(`/api/signatures/${sr.id}/sign`)
       .send({ action: "sign" });
     expect(resA.status).toBe(200);
@@ -64,7 +64,7 @@ describe("signatures — sign/reject is scoped to the authenticated user", () =>
 
     // User A rejects: only their step flips; the request as a whole is rejected
     // (requireAll), but User B's step must remain untouched.
-    const resA = await agentFor(userA.clerkUserId)
+    const resA = await agentFor(userA.id)
       .post(`/api/signatures/${sr.id}/sign`)
       .send({ action: "reject" });
     expect(resA.status).toBe(200);
@@ -94,12 +94,12 @@ describe("signatures — pendingForMe is scoped to the authenticated user", () =
       signatories: [{ userId: userA.id, order: 1, status: "pending", signedAt: null, note: null }],
     });
 
-    const { body: forA } = await agentFor(userA.clerkUserId)
+    const { body: forA } = await agentFor(userA.id)
       .get(`/api/signatures?pendingForMe=true`)
       .expect(200);
     expect(forA.map((s: { id: number }) => s.id)).toContain(sr.id);
 
-    const { body: forB } = await agentFor(userB.clerkUserId)
+    const { body: forB } = await agentFor(userB.id)
       .get(`/api/signatures?pendingForMe=true`)
       .expect(200);
     expect(forB.map((s: { id: number }) => s.id)).not.toContain(sr.id);
@@ -113,14 +113,14 @@ describe("tasks — assignedToMe is scoped to the authenticated user", () => {
     const taskA = await fx.createTask({ assignedToId: userA.id, createdById: userA.id });
     const taskB = await fx.createTask({ assignedToId: userB.id, createdById: userA.id });
 
-    const { body: forA } = await agentFor(userA.clerkUserId)
+    const { body: forA } = await agentFor(userA.id)
       .get(`/api/tasks?assignedToMe=true&limit=200`)
       .expect(200);
     const idsA = forA.items.map((t: { id: number }) => t.id);
     expect(idsA).toContain(taskA.id);
     expect(idsA).not.toContain(taskB.id);
 
-    const { body: forB } = await agentFor(userB.clerkUserId)
+    const { body: forB } = await agentFor(userB.id)
       .get(`/api/tasks?assignedToMe=true&limit=200`)
       .expect(200);
     const idsB = forB.items.map((t: { id: number }) => t.id);

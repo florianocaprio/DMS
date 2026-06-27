@@ -1,34 +1,38 @@
 ---
-name: First-run default-admin setup
-description: How the DMS first-run "set the admin password" flow detects setup mode and why it excludes SSO admins.
+name: First-run admin registration
+description: How the DMS first-run flow detects setup mode and registers the very first administrator (local-only auth).
 ---
 
-# First-run default-admin setup
+# First-run admin registration
 
-On boot, if **no** admin exists, the API seeds a default admin with `username` set
-and `passwordHash = NULL` (a passwordless local account). On first access the app
-shows a "set password" screen (no login needed); the public POST `/auth/bootstrap`
-sets the password (≥8 chars), auto-logs-in via the signed session cookie, and
-locks itself. After that, access requires credentials.
+Auth is **local-only** (username/password + signed `pd_session` cookie); there is
+no external SSO. There is no seeded default admin. Instead, the app is in "setup
+mode" until the first administrator account is created, and the public
+`/auth/bootstrap` endpoints let the first visitor **register** that admin (name,
+username, password ≥8 chars, optional email defaulting to `${username}@local`),
+auto-log-in via the session cookie, and then lock themselves.
 
 ## Setup-mode detection (the key invariant)
-"Needs setup" = a LOCAL admin awaiting a password:
-`role='admin' AND passwordHash IS NULL AND username IS NOT NULL` (lowest id wins).
+"Needs setup" = **no LOGIN-CAPABLE administrator exists**. Login-capable means
+ALL of: `role='admin'`, `passwordHash IS NOT NULL`, `isActive=true`, and a
+non-null `username`. If zero such rows → setupMode = true.
 
-**Why the `username IS NOT NULL` clause matters:** Clerk/Google SSO admins
-legitimately have `passwordHash = NULL` (they never use a password) AND a null
-username. Detecting setup mode on null-password alone would wrongly flag an
-SSO-only deployment as "needs setup". Requiring a non-null username scopes
-detection to the seeded local default admin only.
+**Why all four clauses (not just "has a password"):** the predicate gates both
+whether setup is open AND whether a usable admin already exists. If it only
+checked `passwordHash IS NOT NULL`, an admin that is inactive or has no username
+would count as "configured" yet could not actually log in — leaving the app
+permanently locked out (no login possible, setup refuses to re-open). Requiring
+the row to be genuinely loginable means an unusable admin keeps setup open so a
+real one can be (re)registered.
 
-**How to apply:** keep the same predicate in lockstep across the GET probe, the
-POST set-password transaction, and the `ensureDefaultAdmin` seed guard. The seed
-only runs when zero admins exist, so configured deployments (dev DB with Clerk
-admins) are never touched and never enter setup mode.
+**How to apply:** keep the predicate in a single shared helper used by BOTH the
+GET probe and the POST registration re-check — never inline it twice, or the two
+drift. The POST re-checks inside a transaction guarded by `pg_advisory_xact_lock`
+so concurrent first-run requests can't create two "first" admins; duplicate
+username/email → 409, already-configured → 403.
 
-## Startup ordering (don't regress)
-`ensureDefaultAdmin()` must complete **before** `app.listen` serves traffic.
-**Why:** the frontend probes `/auth/bootstrap` once on mount; if seeding is
-fire-and-forget in the listen callback, a cold-start first visitor can race and
-get dropped into normal login instead of the set-password screen until a manual
-reload.
+## Testing against the shared dev DB
+The bootstrap suite must force setup mode, so it **deletes all password-bearing
+admins up front and restores them at the end** — keep that snapshot/restore or it
+wipes real dev admin accounts. Test usernames must satisfy the endpoint's length
+cap (the long `uniqueSuffix()` overflows it).

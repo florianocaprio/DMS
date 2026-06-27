@@ -1,36 +1,40 @@
 import { db, usersTable } from "@workspace/db";
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
-
-// Identity of the default administrator seeded on a fresh install. The password
-// is intentionally left unset so the first visitor must choose it via the public
-// /auth/bootstrap endpoints (see routes/auth.ts).
-export const DEFAULT_ADMIN_USERNAME = "admin";
-export const DEFAULT_ADMIN_EMAIL = "admin@local";
-export const DEFAULT_ADMIN_NAME = "Amministratore";
-
-export type AdminAwaitingSetup = typeof usersTable.$inferSelect;
+import { and, eq, isNotNull } from "drizzle-orm";
 
 /**
- * First-run setup is active while a LOCAL administrator account exists that has
- * no password yet — the seeded default admin. Clerk/Google admins are excluded
- * (they have a null username and authenticate via SSO, never a password), so an
- * existing SSO-only deployment is never mistaken for "needs setup". Once the
- * password is set the account is configured and the public bootstrap endpoints
- * lock themselves; access then requires real credentials. When several pending
- * admins somehow exist, the lowest id wins so the choice is deterministic.
+ * The single source of truth for "an administrator who can actually log in
+ * exists". Used both to detect setup mode (GET /auth/bootstrap) and to lock the
+ * registration endpoint (POST /auth/bootstrap), so the two never drift.
+ *
+ * A login-capable admin must have role 'admin', a password set, be active, and
+ * have a username (local login uses the username). Requiring all four prevents a
+ * permanent lockout: if the only admin-with-password were inactive or had no
+ * username, it could neither log in nor would setup re-open — leaving the app
+ * inaccessible. Treating such a row as "not login-capable" keeps setup open so
+ * the first usable admin can be (re)registered.
  */
-export async function getAdminAwaitingPasswordSetup(): Promise<AdminAwaitingSetup | null> {
+export function loginCapableAdminCondition() {
+  return and(
+    eq(usersTable.role, "admin"),
+    isNotNull(usersTable.passwordHash),
+    eq(usersTable.isActive, true),
+    isNotNull(usersTable.username),
+  );
+}
+
+/**
+ * First-run setup is active until at least one administrator able to log in
+ * exists (see {@link loginCapableAdminCondition}). On a fresh/empty database (or
+ * one that only has unusable rows) this returns true, and the public
+ * /auth/bootstrap flow lets the first visitor register the initial administrator
+ * and sign in. Once a usable admin exists, setup locks itself and access
+ * requires real credentials.
+ */
+export async function isSetupMode(): Promise<boolean> {
   const [row] = await db
-    .select()
+    .select({ id: usersTable.id })
     .from(usersTable)
-    .where(
-      and(
-        eq(usersTable.role, "admin"),
-        isNull(usersTable.passwordHash),
-        isNotNull(usersTable.username),
-      ),
-    )
-    .orderBy(asc(usersTable.id))
+    .where(loginCapableAdminCondition())
     .limit(1);
-  return row ?? null;
+  return !row;
 }

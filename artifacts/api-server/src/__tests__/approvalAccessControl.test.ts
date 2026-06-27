@@ -23,7 +23,7 @@ describe("workflow approval — act is scoped to the authenticated user", () => 
     });
 
     // User B is authenticated but has no pending step on this instance.
-    const resB = await agentFor(userB.clerkUserId)
+    const resB = await agentFor(userB.id)
       .post(`/api/workflow-instances/${inst.id}/act`)
       .send({ action: "approve" });
     expect(resB.status).toBe(400);
@@ -42,7 +42,7 @@ describe("workflow approval — act is scoped to the authenticated user", () => 
       participants: [{ userId: userA.id, status: "pending", actedAt: null, note: null }],
     });
 
-    const resA = await agentFor(userA.clerkUserId)
+    const resA = await agentFor(userA.id)
       .post(`/api/workflow-instances/${inst.id}/act`)
       .send({ action: "approve" });
     expect(resA.status).toBe(200);
@@ -65,7 +65,7 @@ describe("workflow approval — act is scoped to the authenticated user", () => 
     });
 
     // User A approves: their step resolves, User B's remains pending, instance still pending.
-    const resA = await agentFor(userA.clerkUserId)
+    const resA = await agentFor(userA.id)
       .post(`/api/workflow-instances/${inst.id}/act`)
       .send({ action: "approve" });
     expect(resA.status).toBe(200);
@@ -84,7 +84,7 @@ describe("workflow approval — act is scoped to the authenticated user", () => 
       participants: [{ userId: userA.id, status: "pending", actedAt: null, note: null }],
     });
 
-    // agentFor() with no clerk id => no session => 401.
+    // agentFor() with no user id => no session cookie => 401.
     await agentFor().post(`/api/workflow-instances/${inst.id}/act`).send({ action: "approve" }).expect(401);
   });
 });
@@ -99,12 +99,12 @@ describe("workflow approval — pendingForMe is scoped to the authenticated user
       participants: [{ userId: userA.id, status: "pending", actedAt: null, note: null }],
     });
 
-    const { body: forA } = await agentFor(userA.clerkUserId)
+    const { body: forA } = await agentFor(userA.id)
       .get(`/api/workflow-instances?pendingForMe=true`)
       .expect(200);
     expect(forA.map((i: { id: number }) => i.id)).toContain(inst.id);
 
-    const { body: forB } = await agentFor(userB.clerkUserId)
+    const { body: forB } = await agentFor(userB.id)
       .get(`/api/workflow-instances?pendingForMe=true`)
       .expect(200);
     expect(forB.map((i: { id: number }) => i.id)).not.toContain(inst.id);

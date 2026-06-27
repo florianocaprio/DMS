@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
-import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/password";
-import { getAdminAwaitingPasswordSetup } from "../lib/bootstrap";
+import { isSetupMode, loginCapableAdminCondition } from "../lib/bootstrap";
 
 const router = Router();
 
@@ -74,70 +74,105 @@ router.post("/auth/logout", async (_req, res): Promise<void> => {
   res.status(204).end();
 });
 
-// GET /auth/bootstrap — reports whether the app still needs first-run setup: a
-// default administrator exists but its password has not been set yet. Returns
-// the username to show on the set-password screen. Public.
+// GET /auth/bootstrap — reports whether the app still needs first-run setup
+// (no administrator with a password exists yet). Public.
 router.get("/auth/bootstrap", async (_req, res): Promise<void> => {
-  const admin = await getAdminAwaitingPasswordSetup();
-  if (!admin) {
-    res.json({ setupMode: false });
-    return;
-  }
-  res.json({ setupMode: true, username: admin.username });
+  res.json({ setupMode: await isSetupMode() });
 });
 
-// POST /auth/bootstrap — first-run: set the default administrator's password.
-// Allowed only while that admin still has no password; setting it completes
-// setup, logs the admin in (signed session cookie) and locks this endpoint.
-// Public (used before any login).
+// POST /auth/bootstrap — first-run: register the very first administrator.
+// Allowed only while no admin with a password exists; creating it completes
+// setup, logs the new admin in (signed session cookie) and locks this endpoint.
+// Public (used before any login). Body: { name, username, password, email? }.
 router.post("/auth/bootstrap", async (req, res): Promise<void> => {
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const username = typeof req.body?.username === "string" ? req.body.username.trim().toLowerCase() : "";
+  const emailInput = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
   const password = typeof req.body?.password === "string" ? req.body.password : "";
+
+  if (!name) {
+    res.status(400).json({ error: "Il nome è obbligatorio" });
+    return;
+  }
+  if (!/^[a-z0-9._-]{3,30}$/.test(username)) {
+    res.status(400).json({ error: "Nome utente non valido (min 3 caratteri: lettere, numeri, . _ -)" });
+    return;
+  }
+  if (emailInput && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)) {
+    res.status(400).json({ error: "Email non valida" });
+    return;
+  }
   if (password.length < 8) {
     res.status(400).json({ error: "La password deve contenere almeno 8 caratteri" });
     return;
   }
 
+  const email = emailInput || `${username}@local`;
   // Hash outside the transaction so the (slow) scrypt work doesn't hold the
   // advisory lock.
   const passwordHash = await hashPassword(password);
 
   try {
-    // Serialize concurrent first-run requests and re-check the pending admin
-    // INSIDE the locked transaction. This closes the check-then-update race:
-    // once one request sets the password, every later locked request sees a
-    // configured admin and is rejected.
+    // Serialize concurrent first-run requests and re-check INSIDE the locked
+    // transaction. This closes the check-then-insert race: once one request
+    // creates the first admin, every later locked request is rejected.
     const outcome = await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(${BOOTSTRAP_ADVISORY_LOCK_KEY})`);
-      const [admin] = await tx
-        .select()
+      const [existingAdmin] = await tx
+        .select({ id: usersTable.id })
         .from(usersTable)
-        .where(
-          and(
-            eq(usersTable.role, "admin"),
-            isNull(usersTable.passwordHash),
-            isNotNull(usersTable.username),
-          ),
-        )
-        .orderBy(asc(usersTable.id))
+        .where(loginCapableAdminCondition())
         .limit(1);
-      if (!admin) return { locked: true as const };
-      const [updated] = await tx
-        .update(usersTable)
-        .set({ passwordHash, mustChangePassword: false, lastLoginAt: new Date() })
-        .where(eq(usersTable.id, admin.id))
+      if (existingAdmin) return { status: "locked" as const };
+
+      // Reject duplicates explicitly so the user gets a clear message rather
+      // than a raw unique-constraint error.
+      const [byUsername] = await tx
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.username, username))
+        .limit(1);
+      if (byUsername) return { status: "username_taken" as const };
+      const [byEmail] = await tx
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.email, email))
+        .limit(1);
+      if (byEmail) return { status: "email_taken" as const };
+
+      const [created] = await tx
+        .insert(usersTable)
+        .values({
+          username,
+          email,
+          name,
+          role: "admin",
+          passwordHash,
+          mustChangePassword: false,
+          isActive: true,
+          lastLoginAt: new Date(),
+        })
         .returning();
-      return { locked: false as const, user: updated };
+      return { status: "created" as const, user: created };
     });
 
-    if (outcome.locked) {
+    if (outcome.status === "locked") {
       res.status(403).json({ error: "Configurazione già completata. Accedi con le tue credenziali." });
       return;
     }
+    if (outcome.status === "username_taken") {
+      res.status(409).json({ error: "Nome utente già in uso" });
+      return;
+    }
+    if (outcome.status === "email_taken") {
+      res.status(409).json({ error: "Email già in uso" });
+      return;
+    }
     res.cookie(LOCAL_SESSION_COOKIE, String(outcome.user.id), cookieOptions());
-    res.status(200).json(publicUser(outcome.user));
+    res.status(201).json(publicUser(outcome.user));
   } catch (err) {
-    req.log.error({ err }, "admin password setup failed");
-    res.status(500).json({ error: "Errore durante l'impostazione della password" });
+    req.log.error({ err }, "first admin registration failed");
+    res.status(500).json({ error: "Errore durante la registrazione" });
   }
 });
 
@@ -187,7 +222,7 @@ router.post("/auth/change-password", async (req, res): Promise<void> => {
 });
 
 // GET /auth/session — returns the local-session user if the signed cookie is
-// valid, otherwise 401. Only checks the local cookie (never Clerk). Public.
+// valid, otherwise 401. Checks only the local signed session cookie. Public.
 router.get("/auth/session", async (req, res): Promise<void> => {
   const raw = req.signedCookies?.[LOCAL_SESSION_COOKIE];
   const id = Number(raw);

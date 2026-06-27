@@ -1,17 +1,6 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  ClerkProvider,
-  ClerkLoading,
-  ClerkLoaded,
-  Show,
-  AuthenticateWithRedirectCallback,
-  useUser,
-  useClerk,
-} from "@clerk/react";
-import { useSignIn } from "@clerk/react/legacy";
-import { publishableKeyFromHost } from "@clerk/react/internal";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Lock, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -44,33 +33,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// Only members of this Google Workspace domain may use the application.
-const ALLOWED_DOMAIN = "angeliinmoto.it";
-
-// REQUIRED — resolve the key from window.location.hostname so the same build
-// serves multiple Clerk custom domains. Do not inline the env var.
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
-
-// REQUIRED — empty in dev (Clerk hits dev FAPI directly), auto-set in prod.
-// Do NOT gate on import.meta.env.PROD / NODE_ENV.
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
-
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-// Clerk passes full paths to routerPush/routerReplace, but wouter's
-// setLocation prepends the base — strip it to avoid doubling.
-function stripBase(path: string): string {
-  return basePath && path.startsWith(basePath)
-    ? path.slice(basePath.length) || "/"
-    : path;
-}
-
-if (!clerkPubKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
-}
 
 function FullscreenLoader() {
   return (
@@ -80,32 +43,7 @@ function FullscreenLoader() {
   );
 }
 
-function GoogleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.26 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"
-      />
-    </svg>
-  );
-}
-
 function LoginScreen() {
-  const { signIn, isLoaded } = useSignIn();
-  const [loc] = useLocation();
   const { login } = useLocalAuth();
 
   const [username, setUsername] = useState("");
@@ -113,19 +51,7 @@ function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const onGoogle = () => {
-    if (!isLoaded || !signIn) return;
-    // Preserve the originally requested route so the user lands back on it after
-    // the OAuth round-trip (loc is base-relative; prepend basePath for Clerk).
-    const returnTo = `${basePath}${loc}` || "/";
-    void signIn.authenticateWithRedirect({
-      strategy: "oauth_google",
-      redirectUrl: `${basePath}/sso-callback`,
-      redirectUrlComplete: returnTo,
-    });
-  };
-
-  const onLocalSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setError(null);
@@ -149,23 +75,7 @@ function LoginScreen() {
           Accedi per gestire protocolli, documenti e fascicoli.
         </p>
 
-        <button
-          type="button"
-          onClick={onGoogle}
-          disabled={!isLoaded}
-          className="w-full inline-flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm font-medium text-foreground disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <GoogleIcon />
-          Continua con Google
-        </button>
-
-        <div className="flex items-center gap-3 w-full my-5">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">oppure</span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-
-        <form onSubmit={onLocalSubmit} className="w-full space-y-3 text-left">
+        <form onSubmit={onSubmit} className="w-full space-y-3 text-left">
           <div>
             <label htmlFor="username" className="block text-xs font-medium text-foreground mb-1">Nome utente</label>
             <input
@@ -175,7 +85,7 @@ function LoginScreen() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
-              placeholder="admin"
+              placeholder="nome.utente"
             />
           </div>
           <div>
@@ -200,49 +110,9 @@ function LoginScreen() {
             Accedi
           </button>
         </form>
-
-        <p className="text-xs text-muted-foreground mt-5">
-          L'accesso con Google è riservato agli account <span className="font-medium text-foreground">@{ALLOWED_DOMAIN}</span>
-        </p>
       </div>
     </div>
   );
-}
-
-function AccessDenied({ email }: { email: string }) {
-  const { signOut } = useClerk();
-  return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-sm p-8 flex flex-col items-center text-center">
-        <img src={logoUrl} alt="Angeli in Moto" className="w-14 h-14 rounded-xl object-contain mb-5" />
-        <h1 className="text-lg font-bold text-foreground">Accesso non autorizzato</h1>
-        <p className="text-sm text-muted-foreground mt-2 mb-1">
-          L'account <span className="font-medium text-foreground">{email}</span> non appartiene al dominio
-          consentito.
-        </p>
-        <p className="text-sm text-muted-foreground mb-7">
-          L'accesso è riservato agli account <span className="font-medium text-foreground">@{ALLOWED_DOMAIN}</span>.
-        </p>
-        <button
-          type="button"
-          onClick={() => signOut({ redirectUrl: basePath || "/" })}
-          className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
-        >
-          Esci e cambia account
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DomainGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoaded } = useUser();
-  if (!isLoaded) return <FullscreenLoader />;
-  const email = user?.primaryEmailAddress?.emailAddress ?? "";
-  if (!email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`)) {
-    return <AccessDenied email={email || "sconosciuto"} />;
-  }
-  return <>{children}</>;
 }
 
 function Router() {
@@ -361,8 +231,11 @@ function ChangePasswordScreen() {
   );
 }
 
-function SetPasswordScreen() {
-  const { setupUsername, setupAdminPassword } = useLocalAuth();
+function RegisterAdminScreen() {
+  const { registerAdmin } = useLocalAuth();
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -372,6 +245,14 @@ function SetPasswordScreen() {
     e.preventDefault();
     if (submitting) return;
     setError(null);
+    if (!name.trim()) {
+      setError("Inserisci il tuo nome");
+      return;
+    }
+    if (username.trim().length < 3) {
+      setError("Il nome utente deve contenere almeno 3 caratteri");
+      return;
+    }
     if (password.length < 8) {
       setError("La password deve contenere almeno 8 caratteri");
       return;
@@ -383,9 +264,9 @@ function SetPasswordScreen() {
     setSubmitting(true);
     try {
       // On success the auth context sets the session user and the app enters.
-      await setupAdminPassword(password);
+      await registerAdmin({ name: name.trim(), username: username.trim(), email: email.trim() || undefined, password });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Impossibile impostare la password");
+      setError(err instanceof Error ? err.message : "Impossibile completare la registrazione");
       setSubmitting(false);
     }
   };
@@ -396,26 +277,53 @@ function SetPasswordScreen() {
         <img src={logoUrl} alt="Angeli in Moto" className="w-16 h-16 rounded-xl object-contain mb-5" />
         <h1 className="text-xl font-bold text-foreground">Primo avvio</h1>
         <p className="text-sm text-muted-foreground mt-1.5 mb-6">
-          Imposta la password dell'amministratore per iniziare. Dopo l'accesso potrai configurare il
-          resto del sistema.
+          Crea l'account amministratore per iniziare. Dopo l'accesso potrai configurare il resto del
+          sistema e creare gli altri utenti.
         </p>
 
         <form onSubmit={onSubmit} className="w-full space-y-3 text-left">
           <div>
-            <label htmlFor="sp-username" className="block text-xs font-medium text-foreground mb-1">Nome utente</label>
+            <label htmlFor="rg-name" className="block text-xs font-medium text-foreground mb-1">Nome e cognome</label>
             <input
-              id="sp-username"
+              id="rg-name"
               type="text"
-              value={setupUsername ?? "admin"}
-              readOnly
-              autoComplete="username"
-              className="w-full px-3 py-2 rounded-lg border border-border bg-muted text-sm text-muted-foreground outline-none cursor-not-allowed"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="Mario Rossi"
             />
           </div>
           <div>
-            <label htmlFor="sp-password" className="block text-xs font-medium text-foreground mb-1">Password</label>
+            <label htmlFor="rg-username" className="block text-xs font-medium text-foreground mb-1">Nome utente</label>
             <input
-              id="sp-password"
+              id="rg-username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="admin"
+            />
+          </div>
+          <div>
+            <label htmlFor="rg-email" className="block text-xs font-medium text-foreground mb-1">
+              Email <span className="text-muted-foreground font-normal">(facoltativa)</span>
+            </label>
+            <input
+              id="rg-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/40"
+              placeholder="mario.rossi@esempio.it"
+            />
+          </div>
+          <div>
+            <label htmlFor="rg-password" className="block text-xs font-medium text-foreground mb-1">Password</label>
+            <input
+              id="rg-password"
               type="password"
               autoComplete="new-password"
               value={password}
@@ -425,9 +333,9 @@ function SetPasswordScreen() {
             />
           </div>
           <div>
-            <label htmlFor="sp-confirm" className="block text-xs font-medium text-foreground mb-1">Conferma password</label>
+            <label htmlFor="rg-confirm" className="block text-xs font-medium text-foreground mb-1">Conferma password</label>
             <input
-              id="sp-confirm"
+              id="rg-confirm"
               type="password"
               autoComplete="new-password"
               value={confirm}
@@ -439,11 +347,11 @@ function SetPasswordScreen() {
           {error && <p className="text-xs text-destructive">{error}</p>}
           <button
             type="submit"
-            disabled={submitting || !password || !confirm}
+            disabled={submitting || !name || !username || !password || !confirm}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-            Imposta password e accedi
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+            Crea amministratore e accedi
           </button>
         </form>
       </div>
@@ -452,70 +360,23 @@ function SetPasswordScreen() {
 }
 
 function GatedApp() {
-  const { user: localUser, loading: localLoading, setupMode } = useLocalAuth();
+  const { user, loading, setupMode } = useLocalAuth();
 
   // Wait for the local-session probe before deciding which flow to show, so a
-  // logged-in local admin never briefly sees the Clerk login screen.
-  if (localLoading) return <FullscreenLoader />;
+  // logged-in user never briefly sees the login screen.
+  if (loading) return <FullscreenLoader />;
 
-  // First run: the default administrator exists but has no password yet. Show the
-  // set-password screen (no login required); the bootstrap endpoint enforces this
-  // server-side and logs the admin in once the password is set.
-  if (setupMode) return <SetPasswordScreen />;
+  // First run: no administrator exists yet. Show the registration screen (no
+  // login required); the bootstrap endpoint enforces this server-side and logs
+  // the new admin in once the account is created.
+  if (setupMode && !user) return <RegisterAdminScreen />;
 
-  // A valid local session bypasses Clerk entirely (no domain guard — local
-  // accounts are provisioned explicitly). Force a password change first when the
-  // account is flagged.
-  if (localUser) {
-    if (localUser.mustChangePassword) return <ChangePasswordScreen />;
+  if (user) {
+    if (user.mustChangePassword) return <ChangePasswordScreen />;
     return <Router />;
   }
 
-  return (
-    <>
-      <ClerkLoading>
-        <FullscreenLoader />
-      </ClerkLoading>
-      <ClerkLoaded>
-        <Show when="signed-out">
-          <LoginScreen />
-        </Show>
-        <Show when="signed-in">
-          <DomainGuard>
-            <Router />
-          </DomainGuard>
-        </Show>
-      </ClerkLoaded>
-    </>
-  );
-}
-
-function ClerkProviderWithRoutes() {
-  const [, setLocation] = useLocation();
-  return (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      proxyUrl={clerkProxyUrl}
-      routerPush={(to) => setLocation(stripBase(to))}
-      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
-    >
-      <Switch>
-        <Route path="/sso-callback">
-          <FullscreenLoader />
-          {/* Fallback URLs only — the per-attempt redirectUrlComplete set in
-              LoginScreen takes precedence, returning the user to their
-              originally requested deep link. */}
-          <AuthenticateWithRedirectCallback
-            signInFallbackRedirectUrl={basePath || "/"}
-            signUpFallbackRedirectUrl={basePath || "/"}
-          />
-        </Route>
-        <Route>
-          <GatedApp />
-        </Route>
-      </Switch>
-    </ClerkProvider>
-  );
+  return <LoginScreen />;
 }
 
 function App() {
@@ -524,7 +385,7 @@ function App() {
       <TooltipProvider>
         <LocalAuthProvider>
           <WouterRouter base={basePath}>
-            <ClerkProviderWithRoutes />
+            <GatedApp />
           </WouterRouter>
         </LocalAuthProvider>
         <Toaster />
