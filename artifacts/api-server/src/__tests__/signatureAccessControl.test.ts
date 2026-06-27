@@ -13,7 +13,7 @@ afterAll(async () => {
 });
 
 describe("signatures — sign/reject is scoped to the authenticated user", () => {
-  it("does not let a non-signatory consume another user's pending signature", async () => {
+  it("rejects a non-signatory trying to consume another user's pending signature", async () => {
     const userA = await fx.createUser();
     const userB = await fx.createUser();
     const sr = await fx.createSignatureRequest({
@@ -21,12 +21,13 @@ describe("signatures — sign/reject is scoped to the authenticated user", () =>
       signatories: [{ userId: userA.id, order: 1, status: "pending", signedAt: null, note: null }],
     });
 
-    // User B is authenticated but is not a signatory: nothing should change.
+    // User B is authenticated but is not a signatory: the request should be
+    // rejected with a clear error and nothing should change.
     const resB = await agentFor(userB.clerkUserId)
       .post(`/api/signatures/${sr.id}/sign`)
       .send({ action: "sign" });
-    expect(resB.status).toBe(200);
-    expect(resB.body.status).toBe("pending");
+    expect(resB.status).toBe(400);
+    expect(resB.body.error).toBe("Nessuna firma in attesa per l'utente corrente");
 
     const after = await fx.getSignatories(sr.id);
     expect(after).toEqual([expect.objectContaining({ userId: userA.id, status: "pending" })]);

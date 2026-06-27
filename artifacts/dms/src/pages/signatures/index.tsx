@@ -8,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { PenLine, CheckCircle, XCircle, Clock, Plus, User } from "lucide-react";
 
 export default function SignaturesPage() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const { data: allSignatures } = useListSignatures({}, { query: { queryKey: getListSignaturesQueryKey() } });
   const { data: pendingForMe } = useListSignatures({ pendingForMe: true }, { query: { queryKey: getListSignaturesQueryKey({ pendingForMe: true }) } });
   const { data: documents } = useListDocuments({}, { query: { queryKey: getListDocumentsQueryKey() } });
@@ -25,7 +27,10 @@ export default function SignaturesPage() {
   function handleSign(id: number, action: "sign" | "reject") {
     signDoc.mutate(
       { id, data: { action } as Parameters<typeof signDoc.mutate>[0]["data"] },
-      { onSuccess: () => qc.invalidateQueries({ queryKey: ["listSignatures"] }) }
+      {
+        onSuccess: () => qc.invalidateQueries({ queryKey: ["listSignatures"] }),
+        onError: (e) => toast({ title: "Errore", description: String(e), variant: "destructive" }),
+      }
     );
   }
 

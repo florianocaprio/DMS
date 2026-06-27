@@ -48,11 +48,13 @@ router.post("/signatures/:id/sign", async (req, res): Promise<void> => {
 
   const sigs = (sr.signatories as Array<{ userId: number; order: number; status: string; signedAt: string | null; note: string | null }>) || [];
   const pending = sigs.find((s) => s.userId === req.currentUserId && s.status === "pending");
-  if (pending) {
-    pending.status = action === "sign" ? "signed" : "rejected";
-    pending.signedAt = new Date().toISOString();
-    pending.note = note || null;
+  if (!pending) {
+    res.status(400).json({ error: "Nessuna firma in attesa per l'utente corrente" });
+    return;
   }
+  pending.status = action === "sign" ? "signed" : "rejected";
+  pending.signedAt = new Date().toISOString();
+  pending.note = note || null;
 
   const allSigned = sigs.every((s) => s.status === "signed");
   const anySigned = sigs.some((s) => s.status === "signed");
