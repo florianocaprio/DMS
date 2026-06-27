@@ -41,6 +41,7 @@ Sistema di gestione documentale (DMS) per enti non profit e PMI italiane. Regist
 - **Formato codice fascicolo**: `FASC-{anno}-{####}`.
 - **Status badge bidirezionale**: i badge gestiscono sia i valori in italiano che in inglese (es. "completed" e "completato"), perché l'API restituisce valori in inglese.
 - **Workflow command con PORT**: sia `api-server` che `dms` richiedono `PORT` nell'env; i workflow Replit includono `PORT=...` nel comando.
+- **Cookie di sessione adattivo all'ambiente**: i flag `Secure`/`SameSite` del cookie `pd_session` derivano dal protocollo reale della richiesta (`req.secure`), non da `NODE_ENV`. HTTPS (anteprima Replit / iframe / reverse proxy TLS) → `Secure` + `SameSite=None`; HTTP (self-host su `http://`) → cookie normale `SameSite=Lax`. L'app usa `app.set("trust proxy", true)` così `req.secure` riflette `X-Forwarded-Proto`. Questo evita che il browser scarti un cookie `Secure` su HTTP (sessione mai salvata → "Non autenticato").
 
 ## Product
 

@@ -9,6 +9,12 @@ import { requireAuth } from "./middleware/requireAuth";
 
 const app: Express = express();
 
+// Trust the upstream reverse proxy (Replit's shared proxy in dev/preview, or any
+// TLS-terminating proxy when self-hosted) so req.secure / req.protocol reflect the
+// original X-Forwarded-Proto. The session cookie's Secure/SameSite flags are
+// derived from req.secure (see cookieOptions in routes/auth.ts).
+app.set("trust proxy", true);
+
 app.use(
   pinoHttp({
     logger,

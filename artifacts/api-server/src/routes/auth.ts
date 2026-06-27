@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
@@ -17,11 +17,22 @@ export const LOCAL_SESSION_COOKIE = "pd_session";
 
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-function cookieOptions() {
+// Cookie security is derived from the ACTUAL connection protocol (req.secure),
+// not NODE_ENV, so the same production build works in both environments:
+//   - HTTPS (Replit preview/iframe, or any TLS reverse proxy):
+//       Secure + SameSite=None — None is required for the cross-site iframe
+//       preview, and the browser only accepts SameSite=None when Secure is set.
+//   - HTTP (self-hosted on plain http://, e.g. localhost:8082):
+//       non-Secure + SameSite=Lax — a Secure cookie would be silently dropped
+//       by the browser over HTTP, leaving the session never persisted.
+// req.secure reflects the X-Forwarded-Proto header because the app trusts the
+// proxy (see `trust proxy` in app.ts).
+function cookieOptions(req: Request) {
+  const isHttps = req.secure;
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    sameSite: (isHttps ? "none" : "lax") as "none" | "lax",
+    secure: isHttps,
     signed: true,
     maxAge: COOKIE_MAX_AGE_MS,
     path: "/",
@@ -64,13 +75,13 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
 
   await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
-  res.cookie(LOCAL_SESSION_COOKIE, String(user.id), cookieOptions());
+  res.cookie(LOCAL_SESSION_COOKIE, String(user.id), cookieOptions(req));
   res.json(publicUser(user));
 });
 
 // POST /auth/logout — clears the local session cookie. Public (idempotent).
-router.post("/auth/logout", async (_req, res): Promise<void> => {
-  res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(), maxAge: undefined });
+router.post("/auth/logout", async (req, res): Promise<void> => {
+  res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(req), maxAge: undefined });
   res.status(204).end();
 });
 
@@ -168,7 +179,7 @@ router.post("/auth/bootstrap", async (req, res): Promise<void> => {
       res.status(409).json({ error: "Email già in uso" });
       return;
     }
-    res.cookie(LOCAL_SESSION_COOKIE, String(outcome.user.id), cookieOptions());
+    res.cookie(LOCAL_SESSION_COOKIE, String(outcome.user.id), cookieOptions(req));
     res.status(201).json(publicUser(outcome.user));
   } catch (err) {
     req.log.error({ err }, "first admin registration failed");
@@ -232,7 +243,7 @@ router.get("/auth/session", async (req, res): Promise<void> => {
   }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!user || !user.isActive) {
-    res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(), maxAge: undefined });
+    res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(req), maxAge: undefined });
     res.status(401).json({ error: "Sessione non valida" });
     return;
   }
