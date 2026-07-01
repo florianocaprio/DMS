@@ -103,6 +103,7 @@ export default function DossiersPage() {
                 <th className="text-left px-6 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Codice</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Titolo</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Padre</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Classificazione</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Area</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Stato</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Responsabile</th>
@@ -116,6 +117,7 @@ export default function DossiersPage() {
                 id: number; code: string; title: string; area?: string | null;
                 status: string; responsibleName?: string | null; documentCount?: number;
                 protocolCount?: number; year: number; parentCode?: string | null; parentId?: number | null;
+                classificationCode?: string | null; classificationTitle?: string | null;
               }>).map((d) => (
                 <tr key={d.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => window.location.href = `/dossiers/${d.id}`}>
                   <td className="px-6 py-3">
@@ -125,6 +127,14 @@ export default function DossiersPage() {
                     <span className="text-slate-800 font-medium line-clamp-1">{d.title}</span>
                   </td>
                   <td className="px-4 py-3 text-slate-400 text-xs font-mono">{d.parentCode ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">
+                    {d.classificationCode ? (
+                      <span>
+                        <span className="font-mono text-slate-400">{d.classificationCode}</span>
+                        {d.classificationTitle ? ` - ${d.classificationTitle}` : ""}
+                      </span>
+                    ) : "—"}
+                  </td>
                   <td className="px-4 py-3 text-slate-500 text-xs">{d.area ?? "—"}</td>
                   <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                   <td className="px-4 py-3 text-slate-600 text-xs">{d.responsibleName ?? "—"}</td>

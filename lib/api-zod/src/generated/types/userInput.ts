@@ -7,10 +7,13 @@
  */
 
 export interface UserInput {
+  username?: string;
   email: string;
   name: string;
   role: string;
   area?: string;
   section?: string;
   avatarUrl?: string;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
 }

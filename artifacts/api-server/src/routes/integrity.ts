@@ -18,8 +18,11 @@ import {
   stopScheduleJob,
   runScheduleNow,
 } from "../lib/scheduler";
+import { requireAnyRole } from "../middleware/requireRole";
 
 const router: IRouter = Router();
+
+router.use("/admin/integrity", requireAnyRole(["admin"]));
 
 // ── GET /api/admin/integrity/status ──────────────────────────────────────────
 // Riepilogo stato integrità: totale protocolli, quanti hanno hash, ultima verifica

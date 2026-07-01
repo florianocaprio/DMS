@@ -23,6 +23,7 @@ import ImportPage from "@/pages/admin/import";
 import DossierDetail from "@/pages/dossiers/detail";
 import ProtocolDetail from "@/pages/protocols/detail";
 import IntegrityPage from "@/pages/admin/integrity";
+import { canAccessAdminItem } from "@/lib/roles";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,6 +116,21 @@ function LoginScreen() {
   );
 }
 
+function AccessDenied() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+      <Lock className="w-10 h-10 opacity-30" />
+      <p className="text-sm">Accesso non autorizzato</p>
+    </div>
+  );
+}
+
+function AdminRoute({ item, children }: { item: string; children: React.ReactNode }) {
+  const { user } = useLocalAuth();
+  if (!canAccessAdminItem(user?.role, item)) return <AccessDenied />;
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     <AppLayout>
@@ -128,12 +144,12 @@ function Router() {
         <Route path="/workflows" component={WorkflowsPage} />
         <Route path="/signatures" component={SignaturesPage} />
         <Route path="/search" component={SearchPage} />
-        <Route path="/admin/users" component={UsersPage} />
-        <Route path="/admin/classifications" component={ClassificationsPage} />
-        <Route path="/admin/settings" component={SettingsPage} />
-        <Route path="/admin/audit-log" component={AuditLogPage} />
-        <Route path="/admin/import" component={ImportPage} />
-        <Route path="/admin/integrity" component={IntegrityPage} />
+        <Route path="/admin/users"><AdminRoute item="users"><UsersPage /></AdminRoute></Route>
+        <Route path="/admin/classifications"><AdminRoute item="classifications"><ClassificationsPage /></AdminRoute></Route>
+        <Route path="/admin/settings"><AdminRoute item="settings"><SettingsPage /></AdminRoute></Route>
+        <Route path="/admin/audit-log"><AdminRoute item="audit"><AuditLogPage /></AdminRoute></Route>
+        <Route path="/admin/import"><AdminRoute item="import"><ImportPage /></AdminRoute></Route>
+        <Route path="/admin/integrity"><AdminRoute item="integrity"><IntegrityPage /></AdminRoute></Route>
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

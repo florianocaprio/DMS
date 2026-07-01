@@ -4,9 +4,11 @@ import {
   useCreateDocument,
   useListDossiers,
   useListUsers,
+  useListClassifications,
   getListDocumentsQueryKey,
   getListDossiersQueryKey,
   getListUsersQueryKey,
+  getListClassificationsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { StatusBadge, PriorityBadge } from "@/components/shared/status-badges";
@@ -50,6 +52,9 @@ interface DocItem {
   subject?: string | null;
   description?: string | null;
   dossierTitle?: string | null;
+  classificationId?: number | null;
+  classificationCode?: string | null;
+  classificationTitle?: string | null;
   responsibleName?: string | null;
   confidentiality?: string;
   createdAt: string;
@@ -83,7 +88,7 @@ export default function DocumentsPage() {
   const [selectedDoc, setSelectedDoc] = useState<DocItem | null>(null);
   const [form, setForm] = useState({
     title: "", type: "delibera", subject: "", description: "",
-    confidentiality: "normal", priority: "normal", dossierId: "", responsibleId: "",
+    confidentiality: "normal", priority: "normal", dossierId: "", classificationId: "", responsibleId: "",
   });
 
   const params = {
@@ -97,6 +102,7 @@ export default function DocumentsPage() {
   const { data, isLoading } = useListDocuments(params, { query: { queryKey: getListDocumentsQueryKey(params) } });
   const { data: dossiers } = useListDossiers({}, { query: { queryKey: getListDossiersQueryKey() } });
   const { data: users } = useListUsers({}, { query: { queryKey: getListUsersQueryKey() } });
+  const { data: classifications } = useListClassifications({ query: { queryKey: getListClassificationsQueryKey() } });
   const createDocument = useCreateDocument();
 
   const items = (data?.items ?? []) as DocItem[];
@@ -131,6 +137,7 @@ export default function DocumentsPage() {
         data: {
           ...form,
           dossierId: form.dossierId && form.dossierId !== "none" ? Number(form.dossierId) : undefined,
+          classificationId: form.classificationId && form.classificationId !== "none" ? Number(form.classificationId) : undefined,
           responsibleId: form.responsibleId && form.responsibleId !== "none" ? Number(form.responsibleId) : undefined,
           tags: [],
         } as Parameters<typeof createDocument.mutate>[0]["data"],
@@ -141,7 +148,7 @@ export default function DocumentsPage() {
             predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].includes("/documents"),
           });
           setShowNew(false);
-          setForm({ title: "", type: "delibera", subject: "", description: "", confidentiality: "normal", priority: "normal", dossierId: "", responsibleId: "" });
+          setForm({ title: "", type: "delibera", subject: "", description: "", confidentiality: "normal", priority: "normal", dossierId: "", classificationId: "", responsibleId: "" });
         },
       }
     );
@@ -254,6 +261,11 @@ export default function DocumentsPage() {
                     <td className="px-6 py-2.5">
                       <p className="font-medium text-slate-900 text-xs line-clamp-1">{doc.title}</p>
                       {doc.subject && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{doc.subject}</p>}
+                      {doc.classificationCode && (
+                        <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                          {doc.classificationCode} {doc.classificationTitle ? `- ${doc.classificationTitle}` : ""}
+                        </p>
+                      )}
                     </td>
                     {!selectedDoc && (
                       <td className="px-4 py-2.5">
@@ -324,6 +336,15 @@ export default function DocumentsPage() {
                   <div className="col-span-2">
                     <p className="text-slate-400">Fascicolo</p>
                     <p className="text-slate-700">{selectedDoc.dossierTitle}</p>
+                  </div>
+                )}
+                {selectedDoc.classificationCode && (
+                  <div className="col-span-2">
+                    <p className="text-slate-400">Classificazione</p>
+                    <p className="text-slate-700">
+                      <span className="font-mono text-slate-500">{selectedDoc.classificationCode}</span>
+                      {selectedDoc.classificationTitle ? ` - ${selectedDoc.classificationTitle}` : ""}
+                    </p>
                   </div>
                 )}
                 {selectedDoc.responsibleName && (
@@ -401,6 +422,20 @@ export default function DocumentsPage() {
                   {(users ?? []).map((u: { id: number; name: string }) => (
                     <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Classificazione</Label>
+              <Select value={form.classificationId || "none"} onValueChange={(v) => setForm((f) => ({ ...f, classificationId: v === "none" ? "" : v }))}>
+                <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nessuna</SelectItem>
+                  {((classifications ?? []) as Array<{ id: number; code: string; title: string; isActive?: boolean }>)
+                    .filter((c) => c.isActive !== false)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.code} - {c.title}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

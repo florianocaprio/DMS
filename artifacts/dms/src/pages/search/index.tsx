@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { useSearchDocuments, getSearchDocumentsQueryKey } from "@workspace/api-client-react";
+import {
+  useSearchDocuments,
+  useListClassifications,
+  getSearchDocumentsQueryKey,
+  getListClassificationsQueryKey,
+} from "@workspace/api-client-react";
 import { StatusBadge, ProtocolTypeBadge } from "@/components/shared/status-badges";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +22,7 @@ const PROTOCOL_TYPES = [
   { value: "incoming", label: "Entrata" },
   { value: "outgoing", label: "Uscita" },
   { value: "internal", label: "Interno" },
+  { value: "reserved", label: "Riservato" },
 ];
 
 export default function SearchPage() {
@@ -25,6 +31,7 @@ export default function SearchPage() {
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProtocolType, setFilterProtocolType] = useState("all");
+  const [filterClassification, setFilterClassification] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
@@ -36,6 +43,7 @@ export default function SearchPage() {
     ...(filterType !== "all" && { type: filterType }),
     ...(filterStatus !== "all" && { status: filterStatus }),
     ...(filterProtocolType !== "all" && { protocolType: filterProtocolType }),
+    ...(filterClassification !== "all" && { classificationId: Number(filterClassification), includeClassificationChildren: true }),
     ...(dateFrom && { dateFrom }),
     ...(dateTo && { dateTo }),
   };
@@ -46,6 +54,7 @@ export default function SearchPage() {
       enabled: submitted.length > 0,
     },
   });
+  const { data: classifications } = useListClassifications({ query: { queryKey: getListClassificationsQueryKey() } });
 
   function handleSearch() {
     setSubmitted(query);
@@ -106,6 +115,17 @@ export default function SearchPage() {
               {PROTOCOL_TYPES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={filterClassification} onValueChange={setFilterClassification}>
+            <SelectTrigger className="w-56 h-8 text-xs"><SelectValue placeholder="Classificazione" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tutte le classificazioni</SelectItem>
+              {((classifications ?? []) as Array<{ id: number; code: string; title: string; isActive?: boolean }>)
+                .filter((c) => c.isActive !== false)
+                .map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.code} - {c.title}</SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
           <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40 h-8 text-xs" placeholder="Dal" />
           <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40 h-8 text-xs" placeholder="Al" />
         </div>
@@ -133,6 +153,7 @@ export default function SearchPage() {
               id: number; resultType: string; title: string; subject?: string | null;
               excerpt?: string | null; status: string; protocolNumber?: string | null;
               documentType?: string | null; createdAt: string;
+              classificationCode?: string | null; classificationTitle?: string | null;
             }>).map((item, i) => (
               <div
                 key={`${item.resultType}-${item.id}-${i}`}
@@ -149,8 +170,14 @@ export default function SearchPage() {
                       {item.protocolNumber && <span className="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{item.protocolNumber}</span>}
                       <StatusBadge status={item.status} />
                       {item.documentType && item.resultType === "protocol" && <ProtocolTypeBadge type={item.documentType} />}
+                      {item.classificationCode && (
+                        <span className="font-mono text-xs text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {item.classificationCode}
+                        </span>
+                      )}
                     </div>
                     {item.subject && <p className="text-xs text-slate-500 mt-0.5">{item.subject}</p>}
+                    {item.classificationTitle && <p className="text-xs text-slate-400 mt-0.5">{item.classificationTitle}</p>}
                     {item.excerpt && <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.excerpt}</p>}
                     <span className="text-xs text-slate-400 mt-1 block">{new Date(item.createdAt).toLocaleDateString("it-IT")}</span>
                   </div>

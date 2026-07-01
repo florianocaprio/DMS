@@ -1,21 +1,28 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { documentsTable, protocolsTable } from "@workspace/db";
+import { classificationsTable, documentsTable, protocolsTable } from "@workspace/db";
 import { desc } from "drizzle-orm";
 
 const router = Router();
 
 router.get("/search", async (req, res): Promise<void> => {
-  const { q, type, status, dateFrom, dateTo, protocolType, page = "1", limit = "20" } = req.query;
+  const { q, type, status, dateFrom, dateTo, protocolType, classificationId, includeClassificationChildren = "true", page = "1", limit = "20" } = req.query;
   const query = (q as string || "").toLowerCase();
   const pg = Number(page);
   const lm = Number(limit);
   const offset = (pg - 1) * lm;
 
-  const [documents, protocols] = await Promise.all([
+  const [documents, protocols, classifications] = await Promise.all([
     db.select().from(documentsTable).orderBy(desc(documentsTable.createdAt)),
     db.select().from(protocolsTable).orderBy(desc(protocolsTable.registeredAt)),
+    db.select().from(classificationsTable).orderBy(classificationsTable.code),
   ]);
+  const classMap = Object.fromEntries(classifications.map((c) => [c.id, c]));
+  const allowedClassIds = buildAllowedClassificationIds(
+    classificationId ? Number(classificationId) : null,
+    includeClassificationChildren !== "false",
+    classifications,
+  );
 
   const results: Array<{
     id: number;
@@ -28,6 +35,9 @@ router.get("/search", async (req, res): Promise<void> => {
     dossierTitle: string | null;
     assignedToName: string | null;
     documentType: string | null;
+    classificationId: number | null;
+    classificationCode: string | null;
+    classificationTitle: string | null;
     createdAt: string;
   }> = [];
 
@@ -45,6 +55,7 @@ router.get("/search", async (req, res): Promise<void> => {
     if (status && doc.status !== status) continue;
     if (dateFrom && doc.createdAt.toISOString() < (dateFrom as string)) continue;
     if (dateTo && doc.createdAt.toISOString() > (dateTo as string)) continue;
+    if (allowedClassIds && (!doc.classificationId || !allowedClassIds.has(doc.classificationId))) continue;
 
     results.push({
       id: doc.id,
@@ -57,12 +68,16 @@ router.get("/search", async (req, res): Promise<void> => {
       dossierTitle: null,
       assignedToName: null,
       documentType: doc.type,
+      classificationId: doc.classificationId,
+      classificationCode: doc.classificationId ? (classMap[doc.classificationId]?.code ?? null) : null,
+      classificationTitle: doc.classificationId ? (classMap[doc.classificationId]?.title ?? null) : null,
       createdAt: doc.createdAt.toISOString(),
     });
   }
 
   for (const prot of protocols) {
     if (protocolType && prot.type !== protocolType) continue;
+    if (allowedClassIds && (!prot.classificationId || !allowedClassIds.has(prot.classificationId))) continue;
     const matches = !query ||
       prot.subject.toLowerCase().includes(query) ||
       prot.number.toLowerCase().includes(query) ||
@@ -82,6 +97,9 @@ router.get("/search", async (req, res): Promise<void> => {
       dossierTitle: null,
       assignedToName: null,
       documentType: prot.type,
+      classificationId: prot.classificationId,
+      classificationCode: prot.classificationId ? (classMap[prot.classificationId]?.code ?? null) : null,
+      classificationTitle: prot.classificationId ? (classMap[prot.classificationId]?.title ?? null) : null,
       createdAt: prot.registeredAt.toISOString(),
     });
   }
@@ -91,5 +109,27 @@ router.get("/search", async (req, res): Promise<void> => {
 
   res.json({ query: q as string || "", items: page_items, total, page: pg, limit: lm });
 });
+
+function buildAllowedClassificationIds(
+  rootId: number | null,
+  includeChildren: boolean,
+  classifications: Array<typeof classificationsTable.$inferSelect>,
+): Set<number> | null {
+  if (!rootId || Number.isNaN(rootId)) return null;
+  const ids = new Set([rootId]);
+  if (!includeChildren) return ids;
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const c of classifications) {
+      if (c.parentId != null && ids.has(c.parentId) && !ids.has(c.id)) {
+        ids.add(c.id);
+        changed = true;
+      }
+    }
+  }
+  return ids;
+}
 
 export default router;

@@ -78,6 +78,15 @@ router.post("/documents", async (req, res): Promise<void> => {
   // No fascicolo selected → land in "Archivio Documenti" (default) as home.
   const homeDossierId = selected ?? defaultDossierId;
   const needsArchiveCopy = !!(defaultDossierId && homeDossierId && homeDossierId !== defaultDossierId);
+  let effectiveClassificationId = classificationId ? Number(classificationId) : null;
+  if (!effectiveClassificationId && homeDossierId) {
+    const [homeDossier] = await db
+      .select({ classificationId: dossiersTable.classificationId })
+      .from(dossiersTable)
+      .where(eq(dossiersTable.id, homeDossierId))
+      .limit(1);
+    effectiveClassificationId = homeDossier?.classificationId ?? null;
+  }
 
   // Create the document and (when a fascicolo was selected) the automatic
   // "Archivio Documenti" junction copy atomically so the doc is never left
@@ -88,7 +97,7 @@ router.post("/documents", async (req, res): Promise<void> => {
       confidentiality: confidentiality || "normal",
       priority: priority || "normal",
       dossierId: homeDossierId,
-      classificationId: classificationId || null,
+      classificationId: effectiveClassificationId,
       responsibleId: responsibleId || null,
       createdById: req.currentUserId!,
       tags: tags || [],
@@ -212,7 +221,7 @@ function fmtDocument(
   doc: typeof documentsTable.$inferSelect,
   userMap: Record<number, { name: string }>,
   dossierMap: Record<number, { title: string }>,
-  classMap: Record<number, { code: string }>,
+  classMap: Record<number, { code: string; title: string }>,
   protMap: Record<number, { number: string }>,
 ) {
   return {
@@ -235,6 +244,7 @@ function fmtDocument(
     protocolNumber: doc.protocolId ? (protMap[doc.protocolId]?.number ?? null) : null,
     classificationId: doc.classificationId,
     classificationCode: doc.classificationId ? (classMap[doc.classificationId]?.code ?? null) : null,
+    classificationTitle: doc.classificationId ? (classMap[doc.classificationId]?.title ?? null) : null,
     responsibleId: doc.responsibleId,
     responsibleName: doc.responsibleId ? (userMap[doc.responsibleId]?.name ?? null) : null,
     createdById: doc.createdById,

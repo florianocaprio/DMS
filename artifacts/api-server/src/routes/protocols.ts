@@ -4,25 +4,26 @@ import { protocolsTable, usersTable, dossiersTable, classificationsTable, protoc
 import { eq, sql, desc, and } from "drizzle-orm";
 import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
 import { getEffectiveMemberships, materializeLegacyMembership } from "../lib/memberships";
+import {
+  loadProtocolNumberingConfig,
+  renderProtocolNumber,
+  validateProtocolNumber,
+  ProtocolNumberingError,
+} from "../lib/protocolNumbering";
 
 const router = Router();
 
-const TYPE_MAP: Record<string, string> = {
-  incoming: "E",
-  outgoing: "U",
-  internal: "I",
-  reserved: "RIS",
-};
-
 async function generateNumber(type: string): Promise<string> {
   const year = new Date().getFullYear();
-  const prefix = "AIM";
-  const typeCode = TYPE_MAP[type] || "I";
+  const config = await loadProtocolNumberingConfig();
   const existing = await db.select({ id: protocolsTable.id })
     .from(protocolsTable)
     .where(sql`extract(year from ${protocolsTable.registeredAt}) = ${year} AND ${protocolsTable.type} = ${type}`);
-  const num = String(existing.length + 1).padStart(6, "0");
-  return `${prefix}-${year}-${typeCode}-${num}`;
+  const number = renderProtocolNumber(config, type, year, existing.length + 1);
+  if (!validateProtocolNumber(number, config)) {
+    throw new ProtocolNumberingError("Il numero generato non rispetta la regex configurata");
+  }
+  return number;
 }
 
 router.get("/protocols", async (req, res): Promise<void> => {
@@ -95,7 +96,16 @@ router.get("/protocols/:id", async (req, res): Promise<void> => {
 
 router.post("/protocols", async (req, res): Promise<void> => {
   const { type, subject, description, sender, recipients, ccRecipients, channel, confidentiality, priority, dossierId, dossierIds, classificationId, documentId, assignedToId, notes } = req.body;
-  const number = await generateNumber(type);
+  let number: string;
+  try {
+    number = await generateNumber(type);
+  } catch (err) {
+    if (err instanceof ProtocolNumberingError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
   const year = new Date().getFullYear();
 
   // Determine primary + extra dossier memberships
@@ -103,13 +113,22 @@ router.post("/protocols", async (req, res): Promise<void> => {
   let primary: number | null = dossierId ? Number(dossierId) : null;
   if (primary == null && extras.length > 0) primary = extras[0];
   const memberIds = Array.from(new Set([...(primary != null ? [primary] : []), ...extras]));
+  let effectiveClassificationId = classificationId ? Number(classificationId) : null;
+  if (!effectiveClassificationId && primary) {
+    const [primaryDossier] = await db
+      .select({ classificationId: dossiersTable.classificationId })
+      .from(dossiersTable)
+      .where(eq(dossiersTable.id, primary))
+      .limit(1);
+    effectiveClassificationId = primaryDossier?.classificationId ?? null;
+  }
 
   const [p] = await db.insert(protocolsTable).values({
     number, year, type, subject, description, sender,
     recipients: recipients || [], ccRecipients: ccRecipients || [],
     channel, confidentiality: confidentiality || "normal",
     priority: priority || "normal",
-    dossierId: primary, classificationId: classificationId || null,
+    dossierId: primary, classificationId: effectiveClassificationId,
     documentId: documentId || null, assignedToId: assignedToId || null,
     registeredById: req.currentUserId!, notes,
   }).returning();
@@ -308,7 +327,7 @@ function fmtProtocol(
   p: typeof protocolsTable.$inferSelect,
   userMap: Record<number, { name: string }>,
   dossierMap: Record<number, { title: string }>,
-  classMap: Record<number, { code: string }>,
+  classMap: Record<number, { code: string; title: string }>,
 ) {
   return {
     id: p.id,
@@ -328,6 +347,7 @@ function fmtProtocol(
     dossierTitle: p.dossierId ? (dossierMap[p.dossierId]?.title ?? null) : null,
     classificationId: p.classificationId,
     classificationCode: p.classificationId ? (classMap[p.classificationId]?.code ?? null) : null,
+    classificationTitle: p.classificationId ? (classMap[p.classificationId]?.title ?? null) : null,
     documentId: p.documentId,
     assignedToId: p.assignedToId,
     assignedToName: p.assignedToId ? (userMap[p.assignedToId]?.name ?? null) : null,

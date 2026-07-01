@@ -39,6 +39,8 @@ export interface Document {
   /** @nullable */
   classificationCode?: string | null;
   /** @nullable */
+  classificationTitle?: string | null;
+  /** @nullable */
   responsibleId?: number | null;
   /** @nullable */
   responsibleName?: string | null;

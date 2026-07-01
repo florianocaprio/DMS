@@ -7,10 +7,14 @@
  */
 
 export interface UserUpdate {
+  /** @nullable */
+  username?: string | null;
+  email?: string;
   name?: string;
   role?: string;
   area?: string;
   section?: string;
   isActive?: boolean;
+  mustChangePassword?: boolean;
   avatarUrl?: string;
 }

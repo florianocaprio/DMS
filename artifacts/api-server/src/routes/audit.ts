@@ -2,10 +2,13 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { auditLogTable } from "@workspace/db";
 import { desc, and, eq, gte, lte, like, or, sql } from "drizzle-orm";
+import { requireAnyRole } from "../middleware/requireRole";
 
 const router: IRouter = Router();
 
 const PAGE_SIZE = 50;
+
+router.use("/admin/audit-log", requireAnyRole(["admin", "auditor"]));
 
 router.get("/admin/audit-log", async (req: Request, res: Response) => {
   try {

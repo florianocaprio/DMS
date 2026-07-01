@@ -26,6 +26,7 @@ import type {
   CancelProtocolInput,
   Classification,
   ClassificationInput,
+  ClassificationUpdate,
   CreateAttachmentInput,
   DashboardStats,
   Document,
@@ -61,6 +62,11 @@ import type {
   ProtocolDossierMembership,
   ProtocolInput,
   ProtocolList,
+  ProtocolNumberPreview,
+  ProtocolNumberPreviewInput,
+  ProtocolNumberValidationInput,
+  ProtocolNumberValidationResult,
+  ProtocolNumberingConfig,
   ProtocolSummary,
   ProtocolUpdate,
   SearchDocumentsParams,
@@ -4228,6 +4234,293 @@ export const useSignDocument = <TError = ErrorType<unknown>,
       return useMutation(getSignDocumentMutationOptions(options));
     }
 
+export const getGetProtocolNumberingConfigUrl = () => {
+
+
+
+
+  return `/api/settings/protocol-numbering`
+}
+
+/**
+ * @summary Get protocol numbering configuration
+ */
+export const getProtocolNumberingConfig = async ( options?: RequestInit): Promise<ProtocolNumberingConfig> => {
+
+  return customFetch<ProtocolNumberingConfig>(getGetProtocolNumberingConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProtocolNumberingConfigQueryKey = () => {
+    return [
+    `/api/settings/protocol-numbering`
+    ] as const;
+    }
+
+
+export const getGetProtocolNumberingConfigQueryOptions = <TData = Awaited<ReturnType<typeof getProtocolNumberingConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProtocolNumberingConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProtocolNumberingConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProtocolNumberingConfig>>> = ({ signal }) => getProtocolNumberingConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProtocolNumberingConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProtocolNumberingConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getProtocolNumberingConfig>>>
+export type GetProtocolNumberingConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get protocol numbering configuration
+ */
+
+export function useGetProtocolNumberingConfig<TData = Awaited<ReturnType<typeof getProtocolNumberingConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProtocolNumberingConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProtocolNumberingConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateProtocolNumberingConfigUrl = () => {
+
+
+
+
+  return `/api/settings/protocol-numbering`
+}
+
+/**
+ * @summary Update protocol numbering configuration
+ */
+export const updateProtocolNumberingConfig = async (protocolNumberingConfig: ProtocolNumberingConfig, options?: RequestInit): Promise<ProtocolNumberingConfig> => {
+
+  return customFetch<ProtocolNumberingConfig>(getUpdateProtocolNumberingConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(protocolNumberingConfig)
+  }
+);}
+
+
+
+
+export const getUpdateProtocolNumberingConfigMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProtocolNumberingConfig>>, TError,{data: BodyType<ProtocolNumberingConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProtocolNumberingConfig>>, TError,{data: BodyType<ProtocolNumberingConfig>}, TContext> => {
+
+const mutationKey = ['updateProtocolNumberingConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProtocolNumberingConfig>>, {data: BodyType<ProtocolNumberingConfig>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateProtocolNumberingConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProtocolNumberingConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateProtocolNumberingConfig>>>
+    export type UpdateProtocolNumberingConfigMutationBody = BodyType<ProtocolNumberingConfig>
+    export type UpdateProtocolNumberingConfigMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update protocol numbering configuration
+ */
+export const useUpdateProtocolNumberingConfig = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProtocolNumberingConfig>>, TError,{data: BodyType<ProtocolNumberingConfig>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProtocolNumberingConfig>>,
+        TError,
+        {data: BodyType<ProtocolNumberingConfig>},
+        TContext
+      > => {
+      return useMutation(getUpdateProtocolNumberingConfigMutationOptions(options));
+    }
+
+export const getPreviewProtocolNumberUrl = () => {
+
+
+
+
+  return `/api/settings/protocol-numbering/preview`
+}
+
+/**
+ * @summary Preview a generated protocol number
+ */
+export const previewProtocolNumber = async (protocolNumberPreviewInput?: ProtocolNumberPreviewInput, options?: RequestInit): Promise<ProtocolNumberPreview> => {
+
+  return customFetch<ProtocolNumberPreview>(getPreviewProtocolNumberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(protocolNumberPreviewInput)
+  }
+);}
+
+
+
+
+export const getPreviewProtocolNumberMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewProtocolNumber>>, TError,{data?: BodyType<ProtocolNumberPreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewProtocolNumber>>, TError,{data?: BodyType<ProtocolNumberPreviewInput>}, TContext> => {
+
+const mutationKey = ['previewProtocolNumber'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewProtocolNumber>>, {data?: BodyType<ProtocolNumberPreviewInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewProtocolNumber(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewProtocolNumberMutationResult = NonNullable<Awaited<ReturnType<typeof previewProtocolNumber>>>
+    export type PreviewProtocolNumberMutationBody = BodyType<ProtocolNumberPreviewInput> | undefined
+    export type PreviewProtocolNumberMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Preview a generated protocol number
+ */
+export const usePreviewProtocolNumber = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewProtocolNumber>>, TError,{data?: BodyType<ProtocolNumberPreviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewProtocolNumber>>,
+        TError,
+        {data?: BodyType<ProtocolNumberPreviewInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewProtocolNumberMutationOptions(options));
+    }
+
+export const getValidateProtocolNumberUrl = () => {
+
+
+
+
+  return `/api/settings/protocol-numbering/validate`
+}
+
+/**
+ * @summary Validate a protocol number against the active configuration
+ */
+export const validateProtocolNumber = async (protocolNumberValidationInput: ProtocolNumberValidationInput, options?: RequestInit): Promise<ProtocolNumberValidationResult> => {
+
+  return customFetch<ProtocolNumberValidationResult>(getValidateProtocolNumberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(protocolNumberValidationInput)
+  }
+);}
+
+
+
+
+export const getValidateProtocolNumberMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateProtocolNumber>>, TError,{data: BodyType<ProtocolNumberValidationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateProtocolNumber>>, TError,{data: BodyType<ProtocolNumberValidationInput>}, TContext> => {
+
+const mutationKey = ['validateProtocolNumber'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateProtocolNumber>>, {data: BodyType<ProtocolNumberValidationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  validateProtocolNumber(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateProtocolNumberMutationResult = NonNullable<Awaited<ReturnType<typeof validateProtocolNumber>>>
+    export type ValidateProtocolNumberMutationBody = BodyType<ProtocolNumberValidationInput>
+    export type ValidateProtocolNumberMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Validate a protocol number against the active configuration
+ */
+export const useValidateProtocolNumber = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateProtocolNumber>>, TError,{data: BodyType<ProtocolNumberValidationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof validateProtocolNumber>>,
+        TError,
+        {data: BodyType<ProtocolNumberValidationInput>},
+        TContext
+      > => {
+      return useMutation(getValidateProtocolNumberMutationOptions(options));
+    }
+
 export const getListUsersUrl = (params?: ListUsersParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -4752,6 +5045,77 @@ export const useCreateClassification = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreateClassificationMutationOptions(options));
+    }
+
+export const getUpdateClassificationUrl = (id: number,) => {
+
+
+
+
+  return `/api/classifications/${id}`
+}
+
+/**
+ * @summary Update classification entry
+ */
+export const updateClassification = async (id: number,
+    classificationUpdate: ClassificationUpdate, options?: RequestInit): Promise<Classification> => {
+
+  return customFetch<Classification>(getUpdateClassificationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(classificationUpdate)
+  }
+);}
+
+
+
+
+export const getUpdateClassificationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClassification>>, TError,{id: number;data: BodyType<ClassificationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClassification>>, TError,{id: number;data: BodyType<ClassificationUpdate>}, TContext> => {
+
+const mutationKey = ['updateClassification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClassification>>, {id: number;data: BodyType<ClassificationUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateClassification(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClassificationMutationResult = NonNullable<Awaited<ReturnType<typeof updateClassification>>>
+    export type UpdateClassificationMutationBody = BodyType<ClassificationUpdate>
+    export type UpdateClassificationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update classification entry
+ */
+export const useUpdateClassification = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClassification>>, TError,{id: number;data: BodyType<ClassificationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClassification>>,
+        TError,
+        {id: number;data: BodyType<ClassificationUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateClassificationMutationOptions(options));
     }
 
 export const getSearchDocumentsUrl = (params: SearchDocumentsParams,) => {

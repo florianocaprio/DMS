@@ -15,6 +15,8 @@ import {
   getListDossiersQueryKey,
   useListUsers,
   getListUsersQueryKey,
+  useListClassifications,
+  getListClassificationsQueryKey,
 } from "@workspace/api-client-react";
 import {
   ProtocolTypeBadge,
@@ -64,6 +66,7 @@ interface Protocol {
   dossierTitle: string | null;
   classificationId: number | null;
   classificationCode: string | null;
+  classificationTitle: string | null;
   assignedToId: number | null;
   assignedToName: string | null;
   registeredById: number;
@@ -171,6 +174,7 @@ export default function ProtocolDetail({ id }: Props) {
     priority: "normal",
     confidentiality: "normal",
     assignedToId: "",
+    classificationId: "",
     notes: "",
   });
 
@@ -181,7 +185,9 @@ export default function ProtocolDetail({ id }: Props) {
 
   const { data: dossiers } = useListDossiers({}, { query: { queryKey: getListDossiersQueryKey() } });
   const { data: users } = useListUsers({}, { query: { queryKey: getListUsersQueryKey({}) } });
+  const { data: classifications } = useListClassifications({ query: { queryKey: getListClassificationsQueryKey() } });
   const userList = (users ?? []) as Array<{ id: number; name: string }>;
+  const classificationList = (classifications ?? []) as Array<{ id: number; code: string; title: string; isActive?: boolean }>;
 
   function applyProtocol(p: Protocol) {
     setProtocol(p);
@@ -193,6 +199,7 @@ export default function ProtocolDetail({ id }: Props) {
       priority: p.priority,
       confidentiality: p.confidentiality,
       assignedToId: p.assignedToId != null ? String(p.assignedToId) : "",
+      classificationId: p.classificationId != null ? String(p.classificationId) : "",
       notes: p.notes ?? "",
     });
   }
@@ -291,6 +298,7 @@ export default function ProtocolDetail({ id }: Props) {
           priority: editForm.priority,
           confidentiality: editForm.confidentiality,
           assignedToId: editForm.assignedToId ? Number(editForm.assignedToId) : null,
+          classificationId: editForm.classificationId ? Number(editForm.classificationId) : null,
           notes: editForm.notes,
         }),
       });
@@ -571,9 +579,28 @@ export default function ProtocolDetail({ id }: Props) {
             {/* Classification */}
             <div className="flex items-start gap-2">
               <FolderOpen className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs text-muted-foreground">Classificazione</div>
-                <div className="text-xs font-medium">{protocol.classificationCode ?? "—"}</div>
+                {editing ? (
+                  <select
+                    className="border border-border rounded px-1.5 py-0.5 text-xs bg-background w-full"
+                    value={editForm.classificationId}
+                    onChange={(e) => setEditForm((f) => ({ ...f, classificationId: e.target.value }))}
+                  >
+                    <option value="">Nessuna</option>
+                    {classificationList.filter((c) => c.isActive !== false).map((c) => (
+                      <option key={c.id} value={String(c.id)}>
+                        {c.code} - {c.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-xs font-medium">
+                    {protocol.classificationCode
+                      ? `${protocol.classificationCode}${protocol.classificationTitle ? ` - ${protocol.classificationTitle}` : ""}`
+                      : "—"}
+                  </div>
+                )}
               </div>
             </div>
           </div>
