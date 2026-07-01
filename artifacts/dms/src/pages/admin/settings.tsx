@@ -4,9 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Settings, HardDrive, CheckCircle2, AlertCircle,
-  ExternalLink, Save, Trash2, Loader2, FolderTree, RotateCcw, ChevronRight,
+  ExternalLink, Save, Trash2, Loader2, FolderTree, RotateCcw, ChevronRight, Hash,
 } from "lucide-react";
 
 interface AppSettings {
@@ -15,9 +16,80 @@ interface AppSettings {
   gdrive_enabled?: string;
 }
 
+interface ProtocolNumberingConfig {
+  protocolNumberTemplate: string;
+  protocolNumberRegex: string;
+  sequencePadding: number;
+  incomingPrefix: string;
+  outgoingPrefix: string;
+  internalPrefix: string;
+  reservedPrefix: string;
+}
+
+interface ProtocolNumberPreview {
+  number: string;
+  valid: boolean;
+  error: string | null;
+}
+
+interface ProtocolNumberValidationResult {
+  valid: boolean;
+  error: string | null;
+}
+
+const DEFAULT_NUMBERING: ProtocolNumberingConfig = {
+  protocolNumberTemplate: "AIM-{YYYY}-{TYPE}-{SEQ6}",
+  protocolNumberRegex: "^AIM-\\d{4}-(E|U|I|RIS)-\\d{6}$",
+  sequencePadding: 6,
+  incomingPrefix: "E",
+  outgoingPrefix: "U",
+  internalPrefix: "I",
+  reservedPrefix: "RIS",
+};
+
 async function loadSettings(): Promise<AppSettings> {
   const res = await fetch("/api/settings");
   if (!res.ok) throw new Error("Failed to load settings");
+  return res.json();
+}
+async function loadProtocolNumbering(): Promise<ProtocolNumberingConfig> {
+  const res = await fetch("/api/settings/protocol-numbering");
+  if (!res.ok) throw new Error("Failed to load protocol numbering");
+  return res.json();
+}
+async function saveProtocolNumbering(config: ProtocolNumberingConfig): Promise<ProtocolNumberingConfig> {
+  const res = await fetch("/api/settings/protocol-numbering", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: "Errore salvataggio numerazione" }));
+    throw new Error(data.error ?? "Errore salvataggio numerazione");
+  }
+  return res.json();
+}
+async function previewProtocolNumber(
+  config: ProtocolNumberingConfig,
+  type: string,
+  sequence: number,
+): Promise<ProtocolNumberPreview> {
+  const res = await fetch("/api/settings/protocol-numbering/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ config, type, sequence }),
+  });
+  return res.json();
+}
+async function validateProtocolNumber(
+  config: ProtocolNumberingConfig,
+  number: string,
+): Promise<ProtocolNumberValidationResult> {
+  const res = await fetch("/api/settings/protocol-numbering/validate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ config, number }),
+  });
   return res.json();
 }
 async function saveSetting(key: string, value: string) {
@@ -52,6 +124,14 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [folderInput, setFolderInput] = useState("");
   const [folderName, setFolderName] = useState("");
+  const [numbering, setNumbering] = useState<ProtocolNumberingConfig>(DEFAULT_NUMBERING);
+  const [numberingSaving, setNumberingSaving] = useState(false);
+  const [numberingSaved, setNumberingSaved] = useState(false);
+  const [previewType, setPreviewType] = useState("incoming");
+  const [previewSequence, setPreviewSequence] = useState("1");
+  const [preview, setPreview] = useState<ProtocolNumberPreview | null>(null);
+  const [validationNumber, setValidationNumber] = useState(`AIM-${EXAMPLE_YEAR}-E-000001`);
+  const [validation, setValidation] = useState<ProtocolNumberValidationResult | null>(null);
 
   const [recovering, setRecovering] = useState(false);
   const [recoverDry, setRecoverDry] = useState(true);
@@ -64,9 +144,10 @@ export default function SettingsPage() {
   }>(null);
 
   useEffect(() => {
-    loadSettings()
-      .then((s) => {
+    Promise.all([loadSettings(), loadProtocolNumbering()])
+      .then(([s, n]) => {
         setSettings(s);
+        setNumbering(n);
         if (s.gdrive_folder_id) setFolderInput(s.gdrive_folder_id);
         if (s.gdrive_folder_name) setFolderName(s.gdrive_folder_name);
       })
@@ -96,6 +177,33 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleSaveNumbering() {
+    setNumberingSaving(true); setError(null); setNumberingSaved(false);
+    try {
+      const savedConfig = await saveProtocolNumbering({
+        ...numbering,
+        sequencePadding: Number(numbering.sequencePadding),
+      });
+      setNumbering(savedConfig);
+      setNumberingSaved(true);
+      setTimeout(() => setNumberingSaved(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore salvataggio numerazione.");
+    } finally {
+      setNumberingSaving(false);
+    }
+  }
+
+  async function handlePreviewNumber() {
+    const result = await previewProtocolNumber(numbering, previewType, Number(previewSequence || 1));
+    setPreview(result);
+  }
+
+  async function handleValidateNumber() {
+    const result = await validateProtocolNumber(numbering, validationNumber);
+    setValidation(result);
   }
 
   async function handleDisable() {
@@ -147,6 +255,113 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex-1 p-6 max-w-2xl space-y-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <Hash className="w-4 h-4 text-slate-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Numerazione protocolli</CardTitle>
+                  <CardDescription className="text-xs mt-0">Formato, regex, anteprima e validazione</CardDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono">AIM</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-xs text-slate-600 mb-1.5 block">Formato numero protocollo</Label>
+              <Input
+                value={numbering.protocolNumberTemplate}
+                onChange={(e) => setNumbering((n) => ({ ...n, protocolNumberTemplate: e.target.value }))}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600 mb-1.5 block">Espressione regolare di validazione</Label>
+              <Input
+                value={numbering.protocolNumberRegex}
+                onChange={(e) => setNumbering((n) => ({ ...n, protocolNumberRegex: e.target.value }))}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div>
+                <Label className="text-xs text-slate-600 mb-1.5 block">Padding</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={numbering.sequencePadding}
+                  onChange={(e) => setNumbering((n) => ({ ...n, sequencePadding: Number(e.target.value) }))}
+                  className="text-xs"
+                />
+              </div>
+              <PrefixInput label="Entrata" value={numbering.incomingPrefix} onChange={(value) => setNumbering((n) => ({ ...n, incomingPrefix: value }))} />
+              <PrefixInput label="Uscita" value={numbering.outgoingPrefix} onChange={(value) => setNumbering((n) => ({ ...n, outgoingPrefix: value }))} />
+              <PrefixInput label="Interno" value={numbering.internalPrefix} onChange={(value) => setNumbering((n) => ({ ...n, internalPrefix: value }))} />
+              <PrefixInput label="Riservato" value={numbering.reservedPrefix} onChange={(value) => setNumbering((n) => ({ ...n, reservedPrefix: value }))} />
+            </div>
+            <div className="border border-slate-200 rounded-lg p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-slate-600 mb-1.5 block">Tipo anteprima</Label>
+                  <Select value={previewType} onValueChange={setPreviewType}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="incoming">Entrata</SelectItem>
+                      <SelectItem value="outgoing">Uscita</SelectItem>
+                      <SelectItem value="internal">Interno</SelectItem>
+                      <SelectItem value="reserved">Riservato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-600 mb-1.5 block">Progressivo</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={previewSequence}
+                    onChange={(e) => setPreviewSequence(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={handlePreviewNumber}>Anteprima</Button>
+                {preview && (
+                  <span className={`text-xs font-mono px-2 py-1 rounded border ${preview.valid ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-red-700 bg-red-50 border-red-200"}`}>
+                    {preview.number || preview.error}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="border border-slate-200 rounded-lg p-3 space-y-3">
+              <Label className="text-xs text-slate-600 block">Test validazione</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={validationNumber}
+                  onChange={(e) => setValidationNumber(e.target.value)}
+                  className="font-mono text-xs"
+                />
+                <Button size="sm" variant="outline" onClick={handleValidateNumber}>Test</Button>
+              </div>
+              {validation && (
+                <p className={`text-xs ${validation.valid ? "text-emerald-700" : "text-red-700"}`}>
+                  {validation.valid ? "Numero valido" : validation.error ?? "Numero non valido"}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleSaveNumbering} disabled={numberingSaving} className="gap-1.5">
+                {numberingSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {numberingSaved ? "Salvato!" : "Salva numerazione"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Google Drive card */}
         <Card>
@@ -447,6 +662,15 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function PrefixInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div>
+      <Label className="text-xs text-slate-600 mb-1.5 block">{label}</Label>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
     </div>
   );
 }

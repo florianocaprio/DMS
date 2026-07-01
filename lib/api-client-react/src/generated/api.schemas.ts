@@ -57,6 +57,8 @@ export interface Document {
   /** @nullable */
   classificationCode?: string | null;
   /** @nullable */
+  classificationTitle?: string | null;
+  /** @nullable */
   responsibleId?: number | null;
   /** @nullable */
   responsibleName?: string | null;
@@ -287,6 +289,8 @@ export interface Protocol {
   /** @nullable */
   classificationCode?: string | null;
   /** @nullable */
+  classificationTitle?: string | null;
+  /** @nullable */
   documentId?: number | null;
   /** @nullable */
   assignedToId?: number | null;
@@ -404,6 +408,8 @@ export interface Dossier {
   classificationId?: number | null;
   /** @nullable */
   classificationCode?: string | null;
+  /** @nullable */
+  classificationTitle?: string | null;
   documentCount?: number;
   protocolCount?: number;
   openedAt: string;
@@ -638,8 +644,50 @@ export interface SignatureAction {
   note?: string;
 }
 
+export interface ProtocolNumberingConfig {
+  protocolNumberTemplate: string;
+  protocolNumberRegex: string;
+  /**
+     * @minimum 1
+     * @maximum 12
+     */
+  sequencePadding: number;
+  incomingPrefix: string;
+  outgoingPrefix: string;
+  internalPrefix: string;
+  reservedPrefix: string;
+}
+
+export interface ProtocolNumberPreviewInput {
+  config?: ProtocolNumberingConfig;
+  type?: string;
+  year?: number;
+  /** @minimum 1 */
+  sequence?: number;
+}
+
+export interface ProtocolNumberPreview {
+  number: string;
+  valid: boolean;
+  /** @nullable */
+  error?: string | null;
+}
+
+export interface ProtocolNumberValidationInput {
+  number: string;
+  config?: ProtocolNumberingConfig;
+}
+
+export interface ProtocolNumberValidationResult {
+  valid: boolean;
+  /** @nullable */
+  error?: string | null;
+}
+
 export interface User {
   id: number;
+  /** @nullable */
+  username?: string | null;
   email: string;
   name: string;
   role: string;
@@ -650,26 +698,34 @@ export interface User {
   /** @nullable */
   avatarUrl?: string | null;
   isActive: boolean;
+  mustChangePassword?: boolean;
   /** @nullable */
   lastLoginAt?: string | null;
   createdAt: string;
 }
 
 export interface UserInput {
+  username?: string;
   email: string;
   name: string;
   role: string;
   area?: string;
   section?: string;
   avatarUrl?: string;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface UserUpdate {
+  /** @nullable */
+  username?: string | null;
+  email?: string;
   name?: string;
   role?: string;
   area?: string;
   section?: string;
   isActive?: boolean;
+  mustChangePassword?: boolean;
   avatarUrl?: string;
 }
 
@@ -682,6 +738,16 @@ export interface Classification {
   level: number;
   /** @nullable */
   parentId?: number | null;
+  sortOrder?: number;
+  /** @nullable */
+  retentionYears?: number | null;
+  /** @nullable */
+  retentionPolicy?: string | null;
+  /** @nullable */
+  responsibleRole?: string | null;
+  /** @nullable */
+  responsibleUserId?: number | null;
+  visibility?: string;
   isActive?: boolean;
 }
 
@@ -692,6 +758,36 @@ export interface ClassificationInput {
   level: number;
   /** @nullable */
   parentId?: number | null;
+  sortOrder?: number;
+  /** @nullable */
+  retentionYears?: number | null;
+  retentionPolicy?: string;
+  responsibleRole?: string;
+  /** @nullable */
+  responsibleUserId?: number | null;
+  visibility?: string;
+  isActive?: boolean;
+}
+
+export interface ClassificationUpdate {
+  code?: string;
+  title?: string;
+  /** @nullable */
+  description?: string | null;
+  level?: number;
+  /** @nullable */
+  parentId?: number | null;
+  sortOrder?: number;
+  /** @nullable */
+  retentionYears?: number | null;
+  /** @nullable */
+  retentionPolicy?: string | null;
+  /** @nullable */
+  responsibleRole?: string | null;
+  /** @nullable */
+  responsibleUserId?: number | null;
+  visibility?: string;
+  isActive?: boolean;
 }
 
 export interface SearchResult {
@@ -711,6 +807,12 @@ export interface SearchResult {
   assignedToName?: string | null;
   /** @nullable */
   documentType?: string | null;
+  /** @nullable */
+  classificationId?: number | null;
+  /** @nullable */
+  classificationCode?: string | null;
+  /** @nullable */
+  classificationTitle?: string | null;
   createdAt: string;
 }
 
@@ -929,6 +1031,11 @@ dateFrom?: string | null;
  */
 dateTo?: string | null;
 protocolType?: string;
+/**
+ * @nullable
+ */
+classificationId?: number | null;
+includeClassificationChildren?: boolean;
 page?: number;
 limit?: number;
 };

@@ -35,6 +35,8 @@ export interface Dossier {
   classificationId?: number | null;
   /** @nullable */
   classificationCode?: string | null;
+  /** @nullable */
+  classificationTitle?: string | null;
   documentCount?: number;
   protocolCount?: number;
   openedAt: string;

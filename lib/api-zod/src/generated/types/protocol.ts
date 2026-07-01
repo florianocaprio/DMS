@@ -32,6 +32,8 @@ export interface Protocol {
   /** @nullable */
   classificationCode?: string | null;
   /** @nullable */
+  classificationTitle?: string | null;
+  /** @nullable */
   documentId?: number | null;
   /** @nullable */
   assignedToId?: number | null;

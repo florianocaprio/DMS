@@ -3,8 +3,19 @@ import { db } from "@workspace/db";
 import { appSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { requireAnyRole } from "../middleware/requireRole";
+import {
+  loadProtocolNumberingConfig,
+  normalizeProtocolNumberingConfig,
+  previewProtocolNumber,
+  saveProtocolNumberingConfig,
+  validateProtocolNumber,
+  ProtocolNumberingError,
+} from "../lib/protocolNumbering";
 
 const router: IRouter = Router();
+
+router.use("/settings", requireAnyRole(["admin"]));
 
 router.get("/settings", async (req: Request, res: Response) => {
   try {
@@ -15,6 +26,67 @@ router.get("/settings", async (req: Request, res: Response) => {
   } catch (err) {
     req.log.error({ err }, "Error listing settings");
     res.status(500).json({ error: "Failed to list settings" });
+  }
+});
+
+router.get("/settings/protocol-numbering", async (req: Request, res: Response) => {
+  try {
+    res.json(await loadProtocolNumberingConfig());
+  } catch (err) {
+    req.log.error({ err }, "Error loading protocol numbering config");
+    res.status(500).json({ error: "Errore caricamento configurazione numerazione" });
+  }
+});
+
+router.put("/settings/protocol-numbering", async (req: Request, res: Response) => {
+  try {
+    const config = normalizeProtocolNumberingConfig(req.body as Record<string, unknown>);
+    await saveProtocolNumberingConfig(config);
+    res.json(config);
+  } catch (err) {
+    if (err instanceof ProtocolNumberingError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    req.log.error({ err }, "Error updating protocol numbering config");
+    res.status(500).json({ error: "Errore salvataggio configurazione numerazione" });
+  }
+});
+
+router.post("/settings/protocol-numbering/preview", async (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as {
+      config?: Record<string, unknown>;
+      type?: string;
+      year?: number;
+      sequence?: number;
+    };
+    const config = body.config
+      ? normalizeProtocolNumberingConfig(body.config)
+      : await loadProtocolNumberingConfig();
+    res.json(previewProtocolNumber(config, body.type, body.year, body.sequence));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Configurazione non valida";
+    res.status(400).json({ number: "", valid: false, error: message });
+  }
+});
+
+router.post("/settings/protocol-numbering/validate", async (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as { number?: string; config?: Record<string, unknown> };
+    const number = typeof body.number === "string" ? body.number.trim() : "";
+    if (!number) {
+      res.status(400).json({ valid: false, error: "Numero protocollo obbligatorio" });
+      return;
+    }
+    const config = body.config
+      ? normalizeProtocolNumberingConfig(body.config)
+      : await loadProtocolNumberingConfig();
+    const valid = validateProtocolNumber(number, config);
+    res.json({ valid, error: valid ? null : "Numero non conforme alla regex configurata" });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Configurazione non valida";
+    res.status(400).json({ valid: false, error: message });
   }
 });
 

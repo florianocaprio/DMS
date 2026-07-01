@@ -25,8 +25,11 @@ import {
 import { parseProtocolXml, type ParsedProtocolXml } from "../lib/protocolXml";
 import { resolveProtocolFolder, regenerateProtocolXml } from "./attachments";
 import { logger } from "../lib/logger";
+import { requireAnyRole } from "../middleware/requireRole";
 
 const router: IRouter = Router();
+
+router.use("/admin/drive", requireAnyRole(["admin"]));
 
 // ── Force-sync a single protocol ──────────────────────────────────────────
 

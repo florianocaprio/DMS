@@ -3,8 +3,11 @@ import { db } from "@workspace/db";
 import { protocolsTable } from "@workspace/db/schema";
 import { eq, and, desc, like } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { requireAnyRole } from "../middleware/requireRole";
 
 const router = Router();
+
+router.use("/admin/import", requireAnyRole(["admin"]));
 
 // ─── CSV parser (RFC 4180, supports quoted multi-line fields) ──────────────────
 function parseCSV(text: string): string[][] {

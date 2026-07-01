@@ -247,7 +247,7 @@ async function getChildCountMap() {
 function fmtDossier(
   d: typeof dossiersTable.$inferSelect,
   userMap: Record<number, { name: string }>,
-  classMap: Record<number, { code: string }>,
+  classMap: Record<number, { code: string; title: string }>,
   docCountMap: Record<number, number>,
   protCountMap: Record<number, number>,
   parentMap: Record<number, { code: string; title: string; parentId?: number | null }>,
@@ -284,6 +284,7 @@ function fmtDossier(
     responsibleName: d.responsibleId ? (userMap[d.responsibleId]?.name ?? null) : null,
     classificationId: d.classificationId,
     classificationCode: d.classificationId ? (classMap[d.classificationId]?.code ?? null) : null,
+    classificationTitle: d.classificationId ? (classMap[d.classificationId]?.title ?? null) : null,
     documentCount: docCountMap[d.id] ?? 0,
     protocolCount: protCountMap[d.id] ?? 0,
     openedAt: d.openedAt.toISOString(),

@@ -13,4 +13,13 @@ export interface ClassificationInput {
   level: number;
   /** @nullable */
   parentId?: number | null;
+  sortOrder?: number;
+  /** @nullable */
+  retentionYears?: number | null;
+  retentionPolicy?: string;
+  responsibleRole?: string;
+  /** @nullable */
+  responsibleUserId?: number | null;
+  visibility?: string;
+  isActive?: boolean;
 }

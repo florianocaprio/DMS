@@ -176,6 +176,7 @@ export const GetMyDashboardItemsResponse = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -332,6 +333,7 @@ export const ListDocumentsResponse = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -394,6 +396,7 @@ export const CreateDocumentResponse = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -438,6 +441,7 @@ export const GetDocumentResponse = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -496,6 +500,7 @@ export const UpdateDocumentResponse = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -555,6 +560,7 @@ export const UpdateDocumentStatusResponse = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -630,6 +636,7 @@ export const AssignDocumentResponse = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -681,6 +688,7 @@ export const ListProtocolsResponse = zod.object({
   "dossierTitle": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentId": zod.number().nullish(),
   "assignedToId": zod.number().nullish(),
   "assignedToName": zod.string().nullish(),
@@ -742,6 +750,7 @@ export const CreateProtocolResponse = zod.object({
   "dossierTitle": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentId": zod.number().nullish(),
   "assignedToId": zod.number().nullish(),
   "assignedToName": zod.string().nullish(),
@@ -785,6 +794,7 @@ export const GetProtocolResponse = zod.object({
   "dossierTitle": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentId": zod.number().nullish(),
   "assignedToId": zod.number().nullish(),
   "assignedToName": zod.string().nullish(),
@@ -841,6 +851,7 @@ export const UpdateProtocolResponse = zod.object({
   "dossierTitle": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentId": zod.number().nullish(),
   "assignedToId": zod.number().nullish(),
   "assignedToName": zod.string().nullish(),
@@ -891,6 +902,7 @@ export const CancelProtocolResponse = zod.object({
   "dossierTitle": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentId": zod.number().nullish(),
   "assignedToId": zod.number().nullish(),
   "assignedToName": zod.string().nullish(),
@@ -1012,6 +1024,7 @@ export const ListDossiersResponse = zod.object({
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentCount": zod.number().default(listDossiersResponseItemsItemDocumentCountDefault),
   "protocolCount": zod.number().default(listDossiersResponseItemsItemProtocolCountDefault),
   "openedAt": zod.string(),
@@ -1067,6 +1080,7 @@ export const CreateDossierResponse = zod.object({
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentCount": zod.number().default(createDossierResponseDocumentCountDefault),
   "protocolCount": zod.number().default(createDossierResponseProtocolCountDefault),
   "openedAt": zod.string(),
@@ -1109,6 +1123,7 @@ export const GetDossierResponse = zod.object({
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentCount": zod.number().default(getDossierResponseDocumentCountDefault),
   "protocolCount": zod.number().default(getDossierResponseProtocolCountDefault),
   "openedAt": zod.string(),
@@ -1163,6 +1178,7 @@ export const UpdateDossierResponse = zod.object({
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentCount": zod.number().default(updateDossierResponseDocumentCountDefault),
   "protocolCount": zod.number().default(updateDossierResponseProtocolCountDefault),
   "openedAt": zod.string(),
@@ -1203,6 +1219,7 @@ export const GetDossierDocumentsResponseItem = zod.object({
   "protocolNumber": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "responsibleId": zod.number().nullish(),
   "responsibleName": zod.string().nullish(),
   "createdById": zod.number().optional(),
@@ -1245,6 +1262,7 @@ export const GetDossierProtocolsResponseItem = zod.object({
   "dossierTitle": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentId": zod.number().nullish(),
   "assignedToId": zod.number().nullish(),
   "assignedToName": zod.string().nullish(),
@@ -1294,6 +1312,7 @@ export const GetDossierChildrenResponseItem = zod.object({
   "responsibleName": zod.string().nullish(),
   "classificationId": zod.number().nullish(),
   "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "documentCount": zod.number().default(getDossierChildrenResponseDocumentCountDefault),
   "protocolCount": zod.number().default(getDossierChildrenResponseProtocolCountDefault),
   "openedAt": zod.string(),
@@ -2005,6 +2024,117 @@ export const SignDocumentResponse = zod.object({
 
 
 /**
+ * @summary Get protocol numbering configuration
+ */
+export const getProtocolNumberingConfigResponseSequencePaddingDefault = 6;
+export const getProtocolNumberingConfigResponseSequencePaddingMax = 12;
+
+
+
+export const GetProtocolNumberingConfigResponse = zod.object({
+  "protocolNumberTemplate": zod.string(),
+  "protocolNumberRegex": zod.string(),
+  "sequencePadding": zod.number().min(1).max(getProtocolNumberingConfigResponseSequencePaddingMax).default(getProtocolNumberingConfigResponseSequencePaddingDefault),
+  "incomingPrefix": zod.string(),
+  "outgoingPrefix": zod.string(),
+  "internalPrefix": zod.string(),
+  "reservedPrefix": zod.string()
+})
+
+
+/**
+ * @summary Update protocol numbering configuration
+ */
+export const updateProtocolNumberingConfigBodySequencePaddingDefault = 6;
+export const updateProtocolNumberingConfigBodySequencePaddingMax = 12;
+
+
+
+export const UpdateProtocolNumberingConfigBody = zod.object({
+  "protocolNumberTemplate": zod.string(),
+  "protocolNumberRegex": zod.string(),
+  "sequencePadding": zod.number().min(1).max(updateProtocolNumberingConfigBodySequencePaddingMax).default(updateProtocolNumberingConfigBodySequencePaddingDefault),
+  "incomingPrefix": zod.string(),
+  "outgoingPrefix": zod.string(),
+  "internalPrefix": zod.string(),
+  "reservedPrefix": zod.string()
+})
+
+export const updateProtocolNumberingConfigResponseSequencePaddingDefault = 6;
+export const updateProtocolNumberingConfigResponseSequencePaddingMax = 12;
+
+
+
+export const UpdateProtocolNumberingConfigResponse = zod.object({
+  "protocolNumberTemplate": zod.string(),
+  "protocolNumberRegex": zod.string(),
+  "sequencePadding": zod.number().min(1).max(updateProtocolNumberingConfigResponseSequencePaddingMax).default(updateProtocolNumberingConfigResponseSequencePaddingDefault),
+  "incomingPrefix": zod.string(),
+  "outgoingPrefix": zod.string(),
+  "internalPrefix": zod.string(),
+  "reservedPrefix": zod.string()
+})
+
+
+/**
+ * @summary Preview a generated protocol number
+ */
+export const previewProtocolNumberBodyConfigSequencePaddingDefault = 6;
+export const previewProtocolNumberBodyConfigSequencePaddingMax = 12;
+
+export const previewProtocolNumberBodyTypeDefault = `incoming`;
+
+
+export const PreviewProtocolNumberBody = zod.object({
+  "config": zod.object({
+  "protocolNumberTemplate": zod.string(),
+  "protocolNumberRegex": zod.string(),
+  "sequencePadding": zod.number().min(1).max(previewProtocolNumberBodyConfigSequencePaddingMax).default(previewProtocolNumberBodyConfigSequencePaddingDefault),
+  "incomingPrefix": zod.string(),
+  "outgoingPrefix": zod.string(),
+  "internalPrefix": zod.string(),
+  "reservedPrefix": zod.string()
+}).optional(),
+  "type": zod.string().default(previewProtocolNumberBodyTypeDefault),
+  "year": zod.number().optional(),
+  "sequence": zod.number().min(1).optional()
+})
+
+export const PreviewProtocolNumberResponse = zod.object({
+  "number": zod.string(),
+  "valid": zod.boolean(),
+  "error": zod.string().nullish()
+})
+
+
+/**
+ * @summary Validate a protocol number against the active configuration
+ */
+export const validateProtocolNumberBodyConfigSequencePaddingDefault = 6;
+export const validateProtocolNumberBodyConfigSequencePaddingMax = 12;
+
+
+
+export const ValidateProtocolNumberBody = zod.object({
+  "number": zod.string(),
+  "config": zod.object({
+  "protocolNumberTemplate": zod.string(),
+  "protocolNumberRegex": zod.string(),
+  "sequencePadding": zod.number().min(1).max(validateProtocolNumberBodyConfigSequencePaddingMax).default(validateProtocolNumberBodyConfigSequencePaddingDefault),
+  "incomingPrefix": zod.string(),
+  "outgoingPrefix": zod.string(),
+  "internalPrefix": zod.string(),
+  "reservedPrefix": zod.string()
+}).optional()
+})
+
+export const ValidateProtocolNumberResponse = zod.object({
+  "valid": zod.boolean(),
+  "error": zod.string().nullish()
+})
+
+
+/**
  * @summary List users
  */
 export const ListUsersQueryParams = zod.object({
@@ -2012,8 +2142,11 @@ export const ListUsersQueryParams = zod.object({
   "active": zod.coerce.boolean().nullish()
 })
 
+export const listUsersResponseMustChangePasswordDefault = false;
+
 export const ListUsersResponseItem = zod.object({
   "id": zod.number(),
+  "username": zod.string().nullish(),
   "email": zod.string(),
   "name": zod.string(),
   "role": zod.string(),
@@ -2021,6 +2154,7 @@ export const ListUsersResponseItem = zod.object({
   "section": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean().default(listUsersResponseMustChangePasswordDefault),
   "lastLoginAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -2031,16 +2165,22 @@ export const ListUsersResponse = zod.array(ListUsersResponseItem)
  * @summary Create a user
  */
 export const CreateUserBody = zod.object({
+  "username": zod.string().optional(),
   "email": zod.string(),
   "name": zod.string(),
   "role": zod.string(),
   "area": zod.string().optional(),
   "section": zod.string().optional(),
-  "avatarUrl": zod.string().optional()
+  "avatarUrl": zod.string().optional(),
+  "isActive": zod.boolean().optional(),
+  "mustChangePassword": zod.boolean().optional()
 })
+
+export const createUserResponseMustChangePasswordDefault = false;
 
 export const CreateUserResponse = zod.object({
   "id": zod.number(),
+  "username": zod.string().nullish(),
   "email": zod.string(),
   "name": zod.string(),
   "role": zod.string(),
@@ -2048,6 +2188,7 @@ export const CreateUserResponse = zod.object({
   "section": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean().default(createUserResponseMustChangePasswordDefault),
   "lastLoginAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -2060,8 +2201,11 @@ export const GetUserParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getUserResponseMustChangePasswordDefault = false;
+
 export const GetUserResponse = zod.object({
   "id": zod.number(),
+  "username": zod.string().nullish(),
   "email": zod.string(),
   "name": zod.string(),
   "role": zod.string(),
@@ -2069,6 +2213,7 @@ export const GetUserResponse = zod.object({
   "section": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean().default(getUserResponseMustChangePasswordDefault),
   "lastLoginAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -2082,16 +2227,22 @@ export const UpdateUserParams = zod.object({
 })
 
 export const UpdateUserBody = zod.object({
+  "username": zod.string().nullish(),
+  "email": zod.string().optional(),
   "name": zod.string().optional(),
   "role": zod.string().optional(),
   "area": zod.string().optional(),
   "section": zod.string().optional(),
   "isActive": zod.boolean().optional(),
+  "mustChangePassword": zod.boolean().optional(),
   "avatarUrl": zod.string().optional()
 })
 
+export const updateUserResponseMustChangePasswordDefault = false;
+
 export const UpdateUserResponse = zod.object({
   "id": zod.number(),
+  "username": zod.string().nullish(),
   "email": zod.string(),
   "name": zod.string(),
   "role": zod.string(),
@@ -2099,6 +2250,7 @@ export const UpdateUserResponse = zod.object({
   "section": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean().default(updateUserResponseMustChangePasswordDefault),
   "lastLoginAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -2107,8 +2259,11 @@ export const UpdateUserResponse = zod.object({
 /**
  * @summary Get current user
  */
+export const getCurrentUserResponseMustChangePasswordDefault = false;
+
 export const GetCurrentUserResponse = zod.object({
   "id": zod.number(),
+  "username": zod.string().nullish(),
   "email": zod.string(),
   "name": zod.string(),
   "role": zod.string(),
@@ -2116,6 +2271,7 @@ export const GetCurrentUserResponse = zod.object({
   "section": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
   "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean().default(getCurrentUserResponseMustChangePasswordDefault),
   "lastLoginAt": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -2124,6 +2280,8 @@ export const GetCurrentUserResponse = zod.object({
 /**
  * @summary List titolario classifications
  */
+export const listClassificationsResponseSortOrderDefault = 0;
+export const listClassificationsResponseVisibilityDefault = `normal`;
 export const listClassificationsResponseIsActiveDefault = true;
 
 export const ListClassificationsResponseItem = zod.object({
@@ -2133,6 +2291,12 @@ export const ListClassificationsResponseItem = zod.object({
   "description": zod.string().nullish(),
   "level": zod.number(),
   "parentId": zod.number().nullish(),
+  "sortOrder": zod.number().default(listClassificationsResponseSortOrderDefault),
+  "retentionYears": zod.number().nullish(),
+  "retentionPolicy": zod.string().nullish(),
+  "responsibleRole": zod.string().nullish(),
+  "responsibleUserId": zod.number().nullish(),
+  "visibility": zod.string().default(listClassificationsResponseVisibilityDefault),
   "isActive": zod.boolean().default(listClassificationsResponseIsActiveDefault)
 })
 export const ListClassificationsResponse = zod.array(ListClassificationsResponseItem)
@@ -2146,9 +2310,18 @@ export const CreateClassificationBody = zod.object({
   "title": zod.string(),
   "description": zod.string().optional(),
   "level": zod.number(),
-  "parentId": zod.number().nullish()
+  "parentId": zod.number().nullish(),
+  "sortOrder": zod.number().optional(),
+  "retentionYears": zod.number().nullish(),
+  "retentionPolicy": zod.string().optional(),
+  "responsibleRole": zod.string().optional(),
+  "responsibleUserId": zod.number().nullish(),
+  "visibility": zod.string().optional(),
+  "isActive": zod.boolean().optional()
 })
 
+export const createClassificationResponseSortOrderDefault = 0;
+export const createClassificationResponseVisibilityDefault = `normal`;
 export const createClassificationResponseIsActiveDefault = true;
 
 export const CreateClassificationResponse = zod.object({
@@ -2158,13 +2331,63 @@ export const CreateClassificationResponse = zod.object({
   "description": zod.string().nullish(),
   "level": zod.number(),
   "parentId": zod.number().nullish(),
+  "sortOrder": zod.number().default(createClassificationResponseSortOrderDefault),
+  "retentionYears": zod.number().nullish(),
+  "retentionPolicy": zod.string().nullish(),
+  "responsibleRole": zod.string().nullish(),
+  "responsibleUserId": zod.number().nullish(),
+  "visibility": zod.string().default(createClassificationResponseVisibilityDefault),
   "isActive": zod.boolean().default(createClassificationResponseIsActiveDefault)
+})
+
+
+/**
+ * @summary Update classification entry
+ */
+export const UpdateClassificationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateClassificationBody = zod.object({
+  "code": zod.string().optional(),
+  "title": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "level": zod.number().optional(),
+  "parentId": zod.number().nullish(),
+  "sortOrder": zod.number().optional(),
+  "retentionYears": zod.number().nullish(),
+  "retentionPolicy": zod.string().nullish(),
+  "responsibleRole": zod.string().nullish(),
+  "responsibleUserId": zod.number().nullish(),
+  "visibility": zod.string().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const updateClassificationResponseSortOrderDefault = 0;
+export const updateClassificationResponseVisibilityDefault = `normal`;
+export const updateClassificationResponseIsActiveDefault = true;
+
+export const UpdateClassificationResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "level": zod.number(),
+  "parentId": zod.number().nullish(),
+  "sortOrder": zod.number().default(updateClassificationResponseSortOrderDefault),
+  "retentionYears": zod.number().nullish(),
+  "retentionPolicy": zod.string().nullish(),
+  "responsibleRole": zod.string().nullish(),
+  "responsibleUserId": zod.number().nullish(),
+  "visibility": zod.string().default(updateClassificationResponseVisibilityDefault),
+  "isActive": zod.boolean().default(updateClassificationResponseIsActiveDefault)
 })
 
 
 /**
  * @summary Full-text search across documents and protocols
  */
+export const searchDocumentsQueryIncludeClassificationChildrenDefault = true;
 export const searchDocumentsQueryPageDefault = 1;
 export const searchDocumentsQueryLimitDefault = 20;
 
@@ -2175,6 +2398,8 @@ export const SearchDocumentsQueryParams = zod.object({
   "dateFrom": zod.coerce.string().nullish(),
   "dateTo": zod.coerce.string().nullish(),
   "protocolType": zod.coerce.string().optional(),
+  "classificationId": zod.coerce.number().nullish(),
+  "includeClassificationChildren": zod.coerce.boolean().default(searchDocumentsQueryIncludeClassificationChildrenDefault),
   "page": zod.coerce.number().default(searchDocumentsQueryPageDefault),
   "limit": zod.coerce.number().default(searchDocumentsQueryLimitDefault)
 })
@@ -2192,6 +2417,9 @@ export const SearchDocumentsResponse = zod.object({
   "dossierTitle": zod.string().nullish(),
   "assignedToName": zod.string().nullish(),
   "documentType": zod.string().nullish(),
+  "classificationId": zod.number().nullish(),
+  "classificationCode": zod.string().nullish(),
+  "classificationTitle": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),

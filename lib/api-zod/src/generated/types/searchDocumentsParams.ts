@@ -19,6 +19,11 @@ dateFrom?: string | null;
  */
 dateTo?: string | null;
 protocolType?: string;
+/**
+ * @nullable
+ */
+classificationId?: number | null;
+includeClassificationChildren?: boolean;
 page?: number;
 limit?: number;
 };

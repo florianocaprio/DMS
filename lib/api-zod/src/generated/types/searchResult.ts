@@ -23,5 +23,11 @@ export interface SearchResult {
   assignedToName?: string | null;
   /** @nullable */
   documentType?: string | null;
+  /** @nullable */
+  classificationId?: number | null;
+  /** @nullable */
+  classificationCode?: string | null;
+  /** @nullable */
+  classificationTitle?: string | null;
   createdAt: string;
 }

@@ -8,6 +8,8 @@
 
 export interface User {
   id: number;
+  /** @nullable */
+  username?: string | null;
   email: string;
   name: string;
   role: string;
@@ -18,6 +20,7 @@ export interface User {
   /** @nullable */
   avatarUrl?: string | null;
   isActive: boolean;
+  mustChangePassword?: boolean;
   /** @nullable */
   lastLoginAt?: string | null;
   createdAt: string;

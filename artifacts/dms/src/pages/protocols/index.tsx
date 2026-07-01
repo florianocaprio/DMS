@@ -5,8 +5,10 @@ import {
   useGetProtocolSummary,
   useCreateProtocol,
   useListDossiers,
+  useListClassifications,
   getListProtocolsQueryKey,
   getListDossiersQueryKey,
+  getListClassificationsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ProtocolTypeBadge, StatusBadge } from "@/components/shared/status-badges";
@@ -68,6 +70,9 @@ interface ProtocolItem {
   registeredAt: string;
   assignedToName?: string | null;
   dossierTitle?: string | null;
+  classificationId?: number | null;
+  classificationCode?: string | null;
+  classificationTitle?: string | null;
   notes?: string | null;
 }
 
@@ -87,7 +92,7 @@ export default function ProtocolsPage() {
   const [form, setForm] = useState({
     type: "incoming", subject: "", description: "", sender: "",
     recipients: "", priority: "normal", confidentiality: "normal",
-    dossierId: "", notes: "",
+    dossierId: "", classificationId: "", notes: "",
   });
   const [extraDossierIds, setExtraDossierIds] = useState<number[]>([]);
 
@@ -101,6 +106,7 @@ export default function ProtocolsPage() {
   const { data, isLoading } = useListProtocols(params, { query: { queryKey: getListProtocolsQueryKey(params) } });
   const { data: summary } = useGetProtocolSummary();
   const { data: dossiers } = useListDossiers({}, { query: { queryKey: getListDossiersQueryKey() } });
+  const { data: classifications } = useListClassifications({ query: { queryKey: getListClassificationsQueryKey() } });
   const createProtocol = useCreateProtocol();
 
   const currentYear = new Date().getFullYear();
@@ -179,6 +185,7 @@ export default function ProtocolsPage() {
           recipients: form.recipients ? form.recipients.split(",").map((r) => r.trim()) : [],
           ccRecipients: [],
           dossierId: form.dossierId && form.dossierId !== "none" ? Number(form.dossierId) : undefined,
+          classificationId: form.classificationId && form.classificationId !== "none" ? Number(form.classificationId) : undefined,
           dossierIds: extraDossierIds.length > 0 ? extraDossierIds : undefined,
         } as Parameters<typeof createProtocol.mutate>[0]["data"],
       },
@@ -186,7 +193,7 @@ export default function ProtocolsPage() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: ["listProtocols"] });
           setShowNew(false);
-          setForm({ type: "incoming", subject: "", description: "", sender: "", recipients: "", priority: "normal", confidentiality: "normal", dossierId: "", notes: "" });
+          setForm({ type: "incoming", subject: "", description: "", sender: "", recipients: "", priority: "normal", confidentiality: "normal", dossierId: "", classificationId: "", notes: "" });
           setExtraDossierIds([]);
         },
       }
@@ -298,6 +305,11 @@ export default function ProtocolsPage() {
                     <td className="px-4 py-2.5"><ProtocolTypeBadge type={p.type} /></td>
                     <td className="px-4 py-2.5 max-w-xs">
                       <span className="text-slate-800 text-xs line-clamp-1">{p.subject}</span>
+                      {p.classificationCode && (
+                        <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                          {p.classificationCode} {p.classificationTitle ? `- ${p.classificationTitle}` : ""}
+                        </p>
+                      )}
                     </td>
                     {!selectedProtocol && (
                       <td className="px-4 py-2.5 text-slate-500 text-xs">
@@ -367,6 +379,15 @@ export default function ProtocolsPage() {
                 <div>
                   <p className="text-slate-400 uppercase tracking-wide font-medium">Assegnato a</p>
                   <p className="text-slate-700 mt-0.5">{selectedProtocol.assignedToName}</p>
+                </div>
+              )}
+              {selectedProtocol.classificationCode && (
+                <div>
+                  <p className="text-slate-400 uppercase tracking-wide font-medium">Classificazione</p>
+                  <p className="text-slate-700 mt-0.5">
+                    <span className="font-mono text-slate-500">{selectedProtocol.classificationCode}</span>
+                    {selectedProtocol.classificationTitle ? ` - ${selectedProtocol.classificationTitle}` : ""}
+                  </p>
                 </div>
               )}
               {selectedProtocol.notes && (
@@ -490,6 +511,20 @@ export default function ProtocolsPage() {
                   {(dossiers?.items ?? []).map((d: { id: number; code: string; title: string }) => (
                     <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs text-slate-600 mb-1 block">Classificazione</Label>
+              <Select value={form.classificationId || "none"} onValueChange={(v) => setForm((f) => ({ ...f, classificationId: v === "none" ? "" : v }))}>
+                <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nessuna</SelectItem>
+                  {((classifications ?? []) as Array<{ id: number; code: string; title: string; isActive?: boolean }>)
+                    .filter((c) => c.isActive !== false)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.code} - {c.title}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

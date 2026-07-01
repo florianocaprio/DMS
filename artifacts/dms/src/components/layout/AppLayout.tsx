@@ -20,6 +20,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetCurrentUser } from "@workspace/api-client-react";
 import { useLocalAuth } from "@/lib/local-auth";
+import { canAccessAdminItem } from "@/lib/roles";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -32,18 +33,19 @@ const navigation = [
 ];
 
 const adminNavigation = [
-  { name: "Utenti", href: "/admin/users", icon: Users },
-  { name: "Titolario", href: "/admin/classifications", icon: BookOpen },
-  { name: "Audit Log", href: "/admin/audit-log", icon: ClipboardList },
-  { name: "Import Regystrum", href: "/admin/import", icon: Upload },
-  { name: "Integrità", href: "/admin/integrity", icon: ShieldCheck },
-  { name: "Impostazioni", href: "/admin/settings", icon: Settings },
+  { key: "users", name: "Utenti", href: "/admin/users", icon: Users },
+  { key: "classifications", name: "Titolario", href: "/admin/classifications", icon: BookOpen },
+  { key: "audit", name: "Audit Log", href: "/admin/audit-log", icon: ClipboardList },
+  { key: "import", name: "Import Regystrum", href: "/admin/import", icon: Upload },
+  { key: "integrity", name: "Integrità", href: "/admin/integrity", icon: ShieldCheck },
+  { key: "settings", name: "Impostazioni", href: "/admin/settings", icon: Settings },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { data: user } = useGetCurrentUser();
   const { logout: logoutLocal } = useLocalAuth();
+  const visibleAdminNavigation = adminNavigation.filter((item) => canAccessAdminItem(user?.role, item.key));
 
   const handleSignOut = () => {
     void logoutLocal();
@@ -87,10 +89,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </ul>
           </div>
 
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-2">Amministrazione</p>
-            <ul className="space-y-0.5">
-              {adminNavigation.map((item) => {
+          {visibleAdminNavigation.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-2">Amministrazione</p>
+              <ul className="space-y-0.5">
+                {visibleAdminNavigation.map((item) => {
                 const isActive = location.startsWith(item.href);
                 return (
                   <li key={item.name}>
@@ -107,9 +110,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </Link>
                   </li>
                 );
-              })}
-            </ul>
-          </div>
+                })}
+              </ul>
+            </div>
+          )}
         </nav>
 
         <div className="p-3 border-t border-border">

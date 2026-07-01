@@ -29,6 +29,8 @@ tags:
     description: Dashboard and statistics
   - name: search
     description: Document search
+  - name: settings
+    description: Administrative application settings
   - name: Storage
     description: Object storage upload and serving endpoints.
 
@@ -1250,6 +1252,75 @@ paths:
               schema:
                 $ref: "#/components/schemas/SignatureRequest"
 
+  # --- SETTINGS ---
+  /settings/protocol-numbering:
+    get:
+      operationId: getProtocolNumberingConfig
+      tags: [settings]
+      summary: Get protocol numbering configuration
+      responses:
+        "200":
+          description: Protocol numbering configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProtocolNumberingConfig"
+    put:
+      operationId: updateProtocolNumberingConfig
+      tags: [settings]
+      summary: Update protocol numbering configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProtocolNumberingConfig"
+      responses:
+        "200":
+          description: Updated protocol numbering configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProtocolNumberingConfig"
+
+  /settings/protocol-numbering/preview:
+    post:
+      operationId: previewProtocolNumber
+      tags: [settings]
+      summary: Preview a generated protocol number
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProtocolNumberPreviewInput"
+      responses:
+        "200":
+          description: Generated protocol number preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProtocolNumberPreview"
+
+  /settings/protocol-numbering/validate:
+    post:
+      operationId: validateProtocolNumber
+      tags: [settings]
+      summary: Validate a protocol number against the active configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProtocolNumberValidationInput"
+      responses:
+        "200":
+          description: Protocol number validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProtocolNumberValidationResult"
+
   # --- USERS ---
   /users:
     get:
@@ -1380,6 +1451,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Classification"
 
+  /classifications/{id}:
+    patch:
+      operationId: updateClassification
+      tags: [classifications]
+      summary: Update classification entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClassificationUpdate"
+      responses:
+        "200":
+          description: Updated classification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Classification"
+
   # --- SEARCH ---
   /search:
     get:
@@ -1412,6 +1508,15 @@ paths:
           in: query
           schema:
             type: string
+        - name: classificationId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: includeClassificationChildren
+          in: query
+          schema:
+            type: boolean
+            default: true
         - name: page
           in: query
           schema:
@@ -1609,6 +1714,8 @@ components:
         classificationId:
           type: ["integer", "null"]
         classificationCode:
+          type: ["string", "null"]
+        classificationTitle:
           type: ["string", "null"]
         responsibleId:
           type: ["integer", "null"]
@@ -1834,6 +1941,8 @@ components:
           type: ["integer", "null"]
         classificationCode:
           type: ["string", "null"]
+        classificationTitle:
+          type: ["string", "null"]
         documentId:
           type: ["integer", "null"]
         assignedToId:
@@ -2047,6 +2156,8 @@ components:
         classificationId:
           type: ["integer", "null"]
         classificationCode:
+          type: ["string", "null"]
+        classificationTitle:
           type: ["string", "null"]
         documentCount:
           type: integer
@@ -2624,6 +2735,89 @@ components:
         note:
           type: string
 
+    # --- SETTINGS ---
+    ProtocolNumberingConfig:
+      type: object
+      required:
+        - protocolNumberTemplate
+        - protocolNumberRegex
+        - sequencePadding
+        - incomingPrefix
+        - outgoingPrefix
+        - internalPrefix
+        - reservedPrefix
+      properties:
+        protocolNumberTemplate:
+          type: string
+          example: AIM-{YYYY}-{TYPE}-{SEQ6}
+        protocolNumberRegex:
+          type: string
+          example: ^AIM-\d{4}-(E|U|I|RIS)-\d{6}$
+        sequencePadding:
+          type: integer
+          minimum: 1
+          maximum: 12
+          default: 6
+        incomingPrefix:
+          type: string
+          example: E
+        outgoingPrefix:
+          type: string
+          example: U
+        internalPrefix:
+          type: string
+          example: I
+        reservedPrefix:
+          type: string
+          example: RIS
+
+    ProtocolNumberPreviewInput:
+      type: object
+      properties:
+        config:
+          $ref: "#/components/schemas/ProtocolNumberingConfig"
+        type:
+          type: string
+          default: incoming
+        year:
+          type: integer
+        sequence:
+          type: integer
+          minimum: 1
+
+    ProtocolNumberPreview:
+      type: object
+      required:
+        - number
+        - valid
+      properties:
+        number:
+          type: string
+        valid:
+          type: boolean
+        error:
+          type: ["string", "null"]
+
+    ProtocolNumberValidationInput:
+      type: object
+      required:
+        - number
+      properties:
+        number:
+          type: string
+        config:
+          $ref: "#/components/schemas/ProtocolNumberingConfig"
+
+    ProtocolNumberValidationResult:
+      type: object
+      required:
+        - valid
+      properties:
+        valid:
+          type: boolean
+        error:
+          type: ["string", "null"]
+
     # --- USERS ---
     User:
       type: object
@@ -2637,6 +2831,8 @@ components:
       properties:
         id:
           type: integer
+        username:
+          type: ["string", "null"]
         email:
           type: string
         name:
@@ -2651,6 +2847,9 @@ components:
           type: ["string", "null"]
         isActive:
           type: boolean
+        mustChangePassword:
+          type: boolean
+          default: false
         lastLoginAt:
           type: ["string", "null"]
         createdAt:
@@ -2663,6 +2862,8 @@ components:
         - name
         - role
       properties:
+        username:
+          type: string
         email:
           type: string
         name:
@@ -2675,10 +2876,18 @@ components:
           type: string
         avatarUrl:
           type: string
+        isActive:
+          type: boolean
+        mustChangePassword:
+          type: boolean
 
     UserUpdate:
       type: object
       properties:
+        username:
+          type: ["string", "null"]
+        email:
+          type: string
         name:
           type: string
         role:
@@ -2688,6 +2897,8 @@ components:
         section:
           type: string
         isActive:
+          type: boolean
+        mustChangePassword:
           type: boolean
         avatarUrl:
           type: string
@@ -2713,6 +2924,20 @@ components:
           type: integer
         parentId:
           type: ["integer", "null"]
+        sortOrder:
+          type: integer
+          default: 0
+        retentionYears:
+          type: ["integer", "null"]
+        retentionPolicy:
+          type: ["string", "null"]
+        responsibleRole:
+          type: ["string", "null"]
+        responsibleUserId:
+          type: ["integer", "null"]
+        visibility:
+          type: string
+          default: normal
         isActive:
           type: boolean
           default: true
@@ -2734,6 +2959,48 @@ components:
           type: integer
         parentId:
           type: ["integer", "null"]
+        sortOrder:
+          type: integer
+        retentionYears:
+          type: ["integer", "null"]
+        retentionPolicy:
+          type: string
+        responsibleRole:
+          type: string
+        responsibleUserId:
+          type: ["integer", "null"]
+        visibility:
+          type: string
+        isActive:
+          type: boolean
+
+    ClassificationUpdate:
+      type: object
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        level:
+          type: integer
+        parentId:
+          type: ["integer", "null"]
+        sortOrder:
+          type: integer
+        retentionYears:
+          type: ["integer", "null"]
+        retentionPolicy:
+          type: ["string", "null"]
+        responsibleRole:
+          type: ["string", "null"]
+        responsibleUserId:
+          type: ["integer", "null"]
+        visibility:
+          type: string
+        isActive:
+          type: boolean
 
     # --- SEARCH ---
     SearchResults:
@@ -2786,6 +3053,12 @@ components:
         assignedToName:
           type: ["string", "null"]
         documentType:
+          type: ["string", "null"]
+        classificationId:
+          type: ["integer", "null"]
+        classificationCode:
+          type: ["string", "null"]
+        classificationTitle:
           type: ["string", "null"]
         createdAt:
           type: string

@@ -6,13 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface Classification {
-  id: number;
-  code: string;
-  title: string;
+export interface ClassificationUpdate {
+  code?: string;
+  title?: string;
   /** @nullable */
   description?: string | null;
-  level: number;
+  level?: number;
   /** @nullable */
   parentId?: number | null;
   sortOrder?: number;

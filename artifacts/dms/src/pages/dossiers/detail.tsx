@@ -23,6 +23,7 @@ import {
   Lock,
   RefreshCw,
   GitMerge,
+  BookOpen,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ interface Dossier {
   responsibleName: string | null;
   classificationId: number | null;
   classificationCode: string | null;
+  classificationTitle: string | null;
   documentCount: number;
   protocolCount: number;
   openedAt: string;
@@ -167,9 +169,10 @@ export default function DossierDetail({ id }: Props) {
 
   // Edit state
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ title: "", description: "", area: "", status: "", confidentiality: "", parentId: "" });
+  const [editForm, setEditForm] = useState({ title: "", description: "", area: "", status: "", confidentiality: "", parentId: "", classificationId: "" });
   const [saving, setSaving] = useState(false);
   const [allDossiers, setAllDossiers] = useState<{ id: number; code: string; title: string }[]>([]);
+  const [allClassifications, setAllClassifications] = useState<{ id: number; code: string; title: string; isActive?: boolean }[]>([]);
 
   // Initial load
   useEffect(() => {
@@ -177,7 +180,15 @@ export default function DossierDetail({ id }: Props) {
       try {
         const d = await apiFetch<Dossier>(`/dossiers/${dossierId}`);
         setDossier(d);
-        setEditForm({ title: d.title, description: d.description ?? "", area: d.area ?? "", status: d.status, confidentiality: d.confidentiality, parentId: d.parentId != null ? String(d.parentId) : "" });
+        setEditForm({
+          title: d.title,
+          description: d.description ?? "",
+          area: d.area ?? "",
+          status: d.status,
+          confidentiality: d.confidentiality,
+          parentId: d.parentId != null ? String(d.parentId) : "",
+          classificationId: d.classificationId != null ? String(d.classificationId) : "",
+        });
         const docs = await apiFetch<Document[]>(`/dossiers/${dossierId}/documents`);
         setDocuments(docs);
       } catch (e) {
@@ -243,15 +254,26 @@ export default function DossierDetail({ id }: Props) {
         // selector falls back to "Nessuno" only
       }
     }
+    if (allClassifications.length === 0) {
+      try {
+        setAllClassifications(await apiFetch<{ id: number; code: string; title: string; isActive?: boolean }[]>(`/classifications`));
+      } catch {
+        // selector falls back to "Nessuna" only
+      }
+    }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { parentId, ...rest } = editForm;
+      const { parentId, classificationId, ...rest } = editForm;
       const updated = await apiFetch<Dossier>(`/dossiers/${dossierId}`, {
         method: "PATCH",
-        body: JSON.stringify({ ...rest, parentId: parentId === "" ? null : Number(parentId) }),
+        body: JSON.stringify({
+          ...rest,
+          parentId: parentId === "" ? null : Number(parentId),
+          classificationId: classificationId === "" ? null : Number(classificationId),
+        }),
       });
       setDossier(updated);
       setEditing(false);
@@ -452,6 +474,32 @@ export default function DossierDetail({ id }: Props) {
                   </Link>
                 ) : (
                   <div className="text-xs font-medium">—</div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <BookOpen className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-xs text-muted-foreground">Classificazione</div>
+                {editing ? (
+                  <select
+                    className="border border-border rounded px-1.5 py-0.5 text-xs bg-background w-full"
+                    value={editForm.classificationId}
+                    onChange={e => setEditForm(f => ({ ...f, classificationId: e.target.value }))}
+                  >
+                    <option value="">Nessuna</option>
+                    {allClassifications
+                      .filter(c => c.isActive !== false)
+                      .map(c => (
+                        <option key={c.id} value={String(c.id)}>{c.code} - {c.title}</option>
+                      ))}
+                  </select>
+                ) : (
+                  <div className="text-xs font-medium">
+                    {dossier.classificationCode
+                      ? `${dossier.classificationCode}${dossier.classificationTitle ? ` - ${dossier.classificationTitle}` : ""}`
+                      : "—"}
+                  </div>
                 )}
               </div>
             </div>
