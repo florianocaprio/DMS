@@ -2121,6 +2121,107 @@ export const SignDocumentResponse = zod.object({
 
 
 /**
+ * @summary Get visible dossier level colors
+ */
+export const getDossierLevelColorsResponse1BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const getDossierLevelColorsResponse1ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const getDossierLevelColorsResponse2BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const getDossierLevelColorsResponse2ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const getDossierLevelColorsResponse3BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const getDossierLevelColorsResponse3ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const getDossierLevelColorsResponse4BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const getDossierLevelColorsResponse4ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+
+
+export const GetDossierLevelColorsResponse = zod.object({
+  "1": zod.object({
+  "background": zod.string().regex(getDossierLevelColorsResponse1BackgroundRegExp),
+  "foreground": zod.string().regex(getDossierLevelColorsResponse1ForegroundRegExp)
+}),
+  "2": zod.object({
+  "background": zod.string().regex(getDossierLevelColorsResponse2BackgroundRegExp),
+  "foreground": zod.string().regex(getDossierLevelColorsResponse2ForegroundRegExp)
+}),
+  "3": zod.object({
+  "background": zod.string().regex(getDossierLevelColorsResponse3BackgroundRegExp),
+  "foreground": zod.string().regex(getDossierLevelColorsResponse3ForegroundRegExp)
+}),
+  "4": zod.object({
+  "background": zod.string().regex(getDossierLevelColorsResponse4BackgroundRegExp),
+  "foreground": zod.string().regex(getDossierLevelColorsResponse4ForegroundRegExp)
+})
+})
+
+
+/**
+ * @summary Update visible dossier level colors
+ */
+export const updateDossierLevelColorsBody1BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsBody1ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsBody2BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsBody2ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsBody3BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsBody3ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsBody4BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsBody4ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+
+
+export const UpdateDossierLevelColorsBody = zod.object({
+  "1": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsBody1BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsBody1ForegroundRegExp)
+}),
+  "2": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsBody2BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsBody2ForegroundRegExp)
+}),
+  "3": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsBody3BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsBody3ForegroundRegExp)
+}),
+  "4": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsBody4BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsBody4ForegroundRegExp)
+})
+})
+
+export const updateDossierLevelColorsResponse1BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsResponse1ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsResponse2BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsResponse2ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsResponse3BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsResponse3ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsResponse4BackgroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+export const updateDossierLevelColorsResponse4ForegroundRegExp = new RegExp('^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$');
+
+
+export const UpdateDossierLevelColorsResponse = zod.object({
+  "1": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsResponse1BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsResponse1ForegroundRegExp)
+}),
+  "2": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsResponse2BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsResponse2ForegroundRegExp)
+}),
+  "3": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsResponse3BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsResponse3ForegroundRegExp)
+}),
+  "4": zod.object({
+  "background": zod.string().regex(updateDossierLevelColorsResponse4BackgroundRegExp),
+  "foreground": zod.string().regex(updateDossierLevelColorsResponse4ForegroundRegExp)
+})
+})
+
+
+/**
+ * @summary Reset visible dossier level colors to defaults
+ */
+export const ResetDossierLevelColorsResponse = zod.void()
+
+
+/**
  * @summary Get protocol numbering configuration
  */
 export const getProtocolNumberingConfigResponseSequencePaddingDefault = 6;

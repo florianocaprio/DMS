@@ -7,13 +7,26 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Settings, HardDrive, CheckCircle2, AlertCircle,
-  ExternalLink, Save, Trash2, Loader2, FolderTree, RotateCcw, ChevronRight, Hash,
+  ExternalLink, Save, Trash2, Loader2, FolderTree, RotateCcw, ChevronRight, Hash, Palette,
 } from "lucide-react";
+import {
+  DEFAULT_DOSSIER_LEVEL_COLORS,
+  DOSSIER_VISIBLE_LEVELS,
+  type DossierLevelColors,
+  type DossierVisibleLevel,
+  cloneDefaultDossierLevelColors,
+  contrastRatio,
+  normalizeDossierLevelColors,
+  normalizeHexColor,
+  parseDossierLevelColors,
+  validateDossierLevelColors,
+} from "@/lib/dossier-level-colors";
 
 interface AppSettings {
   gdrive_folder_id?: string;
   gdrive_folder_name?: string;
   gdrive_enabled?: string;
+  dossier_level_colors?: string;
 }
 
 interface ProtocolNumberingConfig {
@@ -57,6 +70,11 @@ async function loadProtocolNumbering(): Promise<ProtocolNumberingConfig> {
   if (!res.ok) throw new Error("Failed to load protocol numbering");
   return res.json();
 }
+async function loadDossierLevelColors(): Promise<DossierLevelColors> {
+  const res = await fetch("/api/settings/dossier-level-colors");
+  if (!res.ok) throw new Error("Failed to load dossier level colors");
+  return parseDossierLevelColors(await res.json());
+}
 async function saveProtocolNumbering(config: ProtocolNumberingConfig): Promise<ProtocolNumberingConfig> {
   const res = await fetch("/api/settings/protocol-numbering", {
     method: "PUT",
@@ -68,6 +86,22 @@ async function saveProtocolNumbering(config: ProtocolNumberingConfig): Promise<P
     throw new Error(data.error ?? "Errore salvataggio numerazione");
   }
   return res.json();
+}
+async function saveDossierLevelColors(config: DossierLevelColors): Promise<DossierLevelColors> {
+  const res = await fetch("/api/settings/dossier-level-colors", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(normalizeDossierLevelColors(config)),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: "Errore salvataggio colori livelli" }));
+    throw new Error(data.error ?? "Errore salvataggio colori livelli");
+  }
+  return parseDossierLevelColors(await res.json());
+}
+async function resetDossierLevelColors(): Promise<void> {
+  const res = await fetch("/api/settings/dossier-level-colors", { method: "DELETE" });
+  if (!res.ok) throw new Error("Errore reset colori livelli");
 }
 async function previewProtocolNumber(
   config: ProtocolNumberingConfig,
@@ -132,6 +166,10 @@ export default function SettingsPage() {
   const [preview, setPreview] = useState<ProtocolNumberPreview | null>(null);
   const [validationNumber, setValidationNumber] = useState(`AIM-${EXAMPLE_YEAR}-E-000001`);
   const [validation, setValidation] = useState<ProtocolNumberValidationResult | null>(null);
+  const [levelColors, setLevelColors] = useState<DossierLevelColors>(() => cloneDefaultDossierLevelColors());
+  const [levelColorSaving, setLevelColorSaving] = useState(false);
+  const [levelColorSaved, setLevelColorSaved] = useState(false);
+  const [levelColorErrors, setLevelColorErrors] = useState<string[]>([]);
 
   const [recovering, setRecovering] = useState(false);
   const [recoverDry, setRecoverDry] = useState(true);
@@ -144,10 +182,11 @@ export default function SettingsPage() {
   }>(null);
 
   useEffect(() => {
-    Promise.all([loadSettings(), loadProtocolNumbering()])
-      .then(([s, n]) => {
+    Promise.all([loadSettings(), loadProtocolNumbering(), loadDossierLevelColors()])
+      .then(([s, n, colors]) => {
         setSettings(s);
         setNumbering(n);
+        setLevelColors(colors);
         if (s.gdrive_folder_id) setFolderInput(s.gdrive_folder_id);
         if (s.gdrive_folder_name) setFolderName(s.gdrive_folder_name);
       })
@@ -220,6 +259,51 @@ export default function SettingsPage() {
     }
   }
 
+  function updateLevelColor(level: DossierVisibleLevel, field: "background" | "foreground", value: string) {
+    setLevelColors((current) => ({
+      ...current,
+      [level]: { ...current[level], [field]: value },
+    }));
+    setLevelColorErrors([]);
+    setLevelColorSaved(false);
+  }
+
+  async function handleSaveLevelColors() {
+    const errors = validateDossierLevelColors(levelColors);
+    setLevelColorErrors(errors);
+    setLevelColorSaved(false);
+    if (errors.length > 0) return;
+
+    setLevelColorSaving(true);
+    setError(null);
+    try {
+      setLevelColors(await saveDossierLevelColors(levelColors));
+      setLevelColorSaved(true);
+      setTimeout(() => setLevelColorSaved(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore salvataggio colori livelli.");
+    } finally {
+      setLevelColorSaving(false);
+    }
+  }
+
+  async function handleResetLevelColors() {
+    setLevelColorSaving(true);
+    setLevelColorErrors([]);
+    setLevelColorSaved(false);
+    setError(null);
+    try {
+      await resetDossierLevelColors();
+      setLevelColors(cloneDefaultDossierLevelColors());
+      setLevelColorSaved(true);
+      setTimeout(() => setLevelColorSaved(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Errore reset colori livelli.");
+    } finally {
+      setLevelColorSaving(false);
+    }
+  }
+
   async function handleRecover() {
     setRecovering(true); setRecoverResult(null);
     try {
@@ -235,6 +319,12 @@ export default function SettingsPage() {
   }
 
   const isDriveEnabled = settings.gdrive_enabled === "true";
+  const contrastWarnings = DOSSIER_VISIBLE_LEVELS
+    .map((level) => {
+      const ratio = contrastRatio(levelColors[level].background, levelColors[level].foreground);
+      return ratio !== null && ratio < 4.5 ? `Livello ${level}: contrasto testo/sfondo basso (${ratio.toFixed(1)}:1).` : null;
+    })
+    .filter((warning): warning is string => Boolean(warning));
 
   if (loading) {
     return (
@@ -254,7 +344,7 @@ export default function SettingsPage() {
         <p className="text-sm text-slate-500 mt-0.5">Configurazione integrazioni e preferenze di sistema</p>
       </div>
 
-      <div className="flex-1 p-6 max-w-2xl space-y-6">
+      <div className="flex-1 p-6 max-w-3xl space-y-6">
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -358,6 +448,102 @@ export default function SettingsPage() {
               <Button size="sm" onClick={handleSaveNumbering} disabled={numberingSaving} className="gap-1.5">
                 {numberingSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {numberingSaved ? "Salvato!" : "Salva numerazione"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <Palette className="w-4 h-4 text-slate-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Colori livelli fascicolo</CardTitle>
+                  <CardDescription className="text-xs mt-0">Sfondo, testo, anteprima e contrasto</CardDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-xs">4 livelli</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              {DOSSIER_VISIBLE_LEVELS.map((level) => {
+                const background = normalizeHexColor(levelColors[level].background) ?? DEFAULT_DOSSIER_LEVEL_COLORS[level].background;
+                const foreground = normalizeHexColor(levelColors[level].foreground) ?? DEFAULT_DOSSIER_LEVEL_COLORS[level].foreground;
+
+                return (
+                  <div key={level} className="grid grid-cols-1 md:grid-cols-[72px_1fr_1fr_auto] gap-3 items-end border border-slate-200 rounded-lg p-3">
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1.5 block">Livello</Label>
+                      <Badge variant="outline" className="text-xs">L{level}</Badge>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1.5 block">Sfondo</Label>
+                      <div className="flex gap-2">
+                        <input
+                          aria-label={`Sfondo livello ${level}`}
+                          type="color"
+                          value={background}
+                          onChange={(e) => updateLevelColor(level, "background", e.target.value)}
+                          className="h-9 w-10 rounded border border-slate-200 bg-white p-1"
+                        />
+                        <Input
+                          value={levelColors[level].background}
+                          onChange={(e) => updateLevelColor(level, "background", e.target.value)}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-600 mb-1.5 block">Testo</Label>
+                      <div className="flex gap-2">
+                        <input
+                          aria-label={`Testo livello ${level}`}
+                          type="color"
+                          value={foreground}
+                          onChange={(e) => updateLevelColor(level, "foreground", e.target.value)}
+                          className="h-9 w-10 rounded border border-slate-200 bg-white p-1"
+                        />
+                        <Input
+                          value={levelColors[level].foreground}
+                          onChange={(e) => updateLevelColor(level, "foreground", e.target.value)}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                    <span
+                      className="inline-flex h-9 items-center rounded-full border px-3 text-xs font-semibold whitespace-nowrap"
+                      style={{ backgroundColor: background, color: foreground, borderColor: foreground }}
+                    >
+                      Livello {level}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {levelColorErrors.length > 0 && (
+              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 space-y-1">
+                {levelColorErrors.map((message) => <p key={message}>{message}</p>)}
+              </div>
+            )}
+            {contrastWarnings.length > 0 && (
+              <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 space-y-1">
+                {contrastWarnings.map((message) => <p key={message}>{message}</p>)}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={handleSaveLevelColors} disabled={levelColorSaving} className="gap-1.5">
+                {levelColorSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {levelColorSaved ? "Salvato!" : "Salva colori"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleResetLevelColors} disabled={levelColorSaving} className="gap-1.5">
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset default
               </Button>
             </div>
           </CardContent>

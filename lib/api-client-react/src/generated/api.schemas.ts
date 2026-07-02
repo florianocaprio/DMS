@@ -678,6 +678,20 @@ export interface SignatureAction {
   note?: string;
 }
 
+export interface DossierLevelColor {
+  /** @pattern ^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$ */
+  background: string;
+  /** @pattern ^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$ */
+  foreground: string;
+}
+
+export interface DossierLevelColors {
+  '1': DossierLevelColor;
+  '2': DossierLevelColor;
+  '3': DossierLevelColor;
+  '4': DossierLevelColor;
+}
+
 export interface ProtocolNumberingConfig {
   protocolNumberTemplate: string;
   protocolNumberRegex: string;

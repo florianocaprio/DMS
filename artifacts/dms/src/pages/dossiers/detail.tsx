@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/shared/status-badges";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalAuth } from "@/lib/local-auth";
+import { getDossierLevelColor, getDossierVisibleLevel, useDossierLevelColors } from "@/lib/dossier-level-colors";
 import DossierWorkflowTab from "./workflow-tab";
 import {
   ArrowLeft,
@@ -128,15 +129,6 @@ function canReopenDossier(role: string | null | undefined) {
 // Max nesting levels of sub-fascicoli (mirrors the API MAX_SUB_LEVELS).
 const MAX_SUB_LEVELS = 4;
 
-// Soft green backgrounds, progressively darker as sub-fascicoli nest deeper.
-// depth 0 (top-level / fascicolo principale) keeps the default page background.
-const NEST_BG: Record<number, string> = {
-  1: "#f0fdf4", // green-50
-  2: "#dcfce7", // green-100
-  3: "#bbf7d0", // green-200
-  4: "#a7f3cf", // green-200/300
-};
-
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 type Tab = "documents" | "protocols" | "subdossiers" | "workflow";
@@ -146,6 +138,7 @@ interface SubDossier {
   code: string;
   title: string;
   status: string;
+  depth: number;
   documentCount: number;
   protocolCount: number;
 }
@@ -159,6 +152,7 @@ export default function DossierDetail({ id }: Props) {
   const { toast } = useToast();
   const { user } = useLocalAuth();
   const dossierId = Number(id);
+  const levelColors = useDossierLevelColors();
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -333,7 +327,8 @@ export default function DossierDetail({ id }: Props) {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  const nestBg = dossier.depth > 0 ? NEST_BG[Math.min(dossier.depth, MAX_SUB_LEVELS)] : undefined;
+  const visibleLevel = getDossierVisibleLevel(dossier.depth);
+  const levelColor = getDossierLevelColor(levelColors, dossier.depth);
   const atDepthLimit = dossier.depth >= MAX_SUB_LEVELS;
   const canReopen = canReopenDossier(user?.role);
   const canEditDossier = dossier.status !== "archived";
@@ -351,7 +346,7 @@ export default function DossierDetail({ id }: Props) {
   return (
     <div
       className="flex-1 overflow-y-auto transition-colors"
-      style={nestBg ? { backgroundColor: nestBg } : undefined}
+      style={{ backgroundColor: levelColor.background }}
     >
       <div className="max-w-5xl mx-auto px-6 py-5 space-y-5">
 
@@ -368,12 +363,13 @@ export default function DossierDetail({ id }: Props) {
             </>
           )}
           <span className="font-medium font-mono text-xs">{dossier.code}</span>
-          {dossier.depth > 0 && (
-            <span className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-green-300 bg-green-100/70 px-2 py-0.5 text-[11px] font-medium text-green-800">
-              <FolderTree className="w-3 h-3" />
-              Sotto-fascicolo · livello {dossier.depth}
-            </span>
-          )}
+          <span
+            className="ml-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+            style={{ backgroundColor: levelColor.background, color: levelColor.foreground, borderColor: levelColor.foreground }}
+          >
+            <FolderTree className="w-3 h-3" />
+            Livello {visibleLevel}
+          </span>
         </div>
 
         {/* Header card */}
@@ -749,19 +745,30 @@ export default function DossierDetail({ id }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {children.map((c) => (
-                      <tr key={c.id} className="border-t border-border/50 hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-2.5">
-                          <Link href={`/dossiers/${c.id}`} className="font-mono text-xs font-medium text-foreground hover:text-primary transition-colors">{c.code}</Link>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <Link href={`/dossiers/${c.id}`} className="font-medium text-foreground hover:text-primary transition-colors line-clamp-1">{c.title}</Link>
-                        </td>
-                        <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.documentCount}</td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.protocolCount}</td>
-                      </tr>
-                    ))}
+                    {children.map((c) => {
+                      const childLevel = getDossierVisibleLevel(c.depth);
+                      const childLevelColor = getDossierLevelColor(levelColors, c.depth);
+
+                      return (
+                        <tr key={c.id} className="border-t border-border/50 hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-2.5">
+                            <Link href={`/dossiers/${c.id}`} className="font-mono text-xs font-medium text-foreground hover:text-primary transition-colors">{c.code}</Link>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <Link href={`/dossiers/${c.id}`} className="font-medium text-foreground hover:text-primary transition-colors line-clamp-1">{c.title}</Link>
+                            <span
+                              className="mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+                              style={{ backgroundColor: childLevelColor.background, color: childLevelColor.foreground, borderColor: childLevelColor.foreground }}
+                            >
+                              Livello {childLevel}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5"><StatusBadge status={c.status} /></td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.documentCount}</td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.protocolCount}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

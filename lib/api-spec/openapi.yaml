@@ -1397,6 +1397,49 @@ paths:
                 $ref: "#/components/schemas/SignatureRequest"
 
   # --- SETTINGS ---
+  /settings/dossier-level-colors:
+    get:
+      operationId: getDossierLevelColors
+      tags: [settings]
+      summary: Get visible dossier level colors
+      responses:
+        "200":
+          description: Dossier level colors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DossierLevelColors"
+    put:
+      operationId: updateDossierLevelColors
+      tags: [settings]
+      summary: Update visible dossier level colors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DossierLevelColors"
+      responses:
+        "200":
+          description: Updated dossier level colors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DossierLevelColors"
+        "400":
+          description: Invalid color configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: resetDossierLevelColors
+      tags: [settings]
+      summary: Reset visible dossier level colors to defaults
+      responses:
+        "204":
+          description: Dossier level colors reset
+
   /settings/protocol-numbering:
     get:
       operationId: getProtocolNumberingConfig
@@ -2954,6 +2997,38 @@ components:
           type: string
 
     # --- SETTINGS ---
+    DossierLevelColor:
+      type: object
+      required:
+        - background
+        - foreground
+      properties:
+        background:
+          type: string
+          pattern: "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+          example: "#E3F2FD"
+        foreground:
+          type: string
+          pattern: "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+          example: "#0D47A1"
+
+    DossierLevelColors:
+      type: object
+      required:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+      properties:
+        "1":
+          $ref: "#/components/schemas/DossierLevelColor"
+        "2":
+          $ref: "#/components/schemas/DossierLevelColor"
+        "3":
+          $ref: "#/components/schemas/DossierLevelColor"
+        "4":
+          $ref: "#/components/schemas/DossierLevelColor"
+
     ProtocolNumberingConfig:
       type: object
       required:
