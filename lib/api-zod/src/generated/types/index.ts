@@ -27,6 +27,8 @@ export * from './documentVersion';
 export * from './documentWorkflow';
 export * from './dossier';
 export * from './dossierInput';
+export * from './dossierLevelColor';
+export * from './dossierLevelColors';
 export * from './dossierList';
 export * from './dossierUpdate';
 export * from './dossierWorkflowInstance';

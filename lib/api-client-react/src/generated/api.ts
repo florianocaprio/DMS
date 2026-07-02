@@ -40,6 +40,7 @@ import type {
   DocumentWorkflow,
   Dossier,
   DossierInput,
+  DossierLevelColors,
   DossierList,
   DossierUpdate,
   DossierWorkflowInstance,
@@ -4741,6 +4742,223 @@ export const useSignDocument = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSignDocumentMutationOptions(options));
+    }
+
+export const getGetDossierLevelColorsUrl = () => {
+
+
+
+
+  return `/api/settings/dossier-level-colors`
+}
+
+/**
+ * @summary Get visible dossier level colors
+ */
+export const getDossierLevelColors = async ( options?: RequestInit): Promise<DossierLevelColors> => {
+
+  return customFetch<DossierLevelColors>(getGetDossierLevelColorsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDossierLevelColorsQueryKey = () => {
+    return [
+    `/api/settings/dossier-level-colors`
+    ] as const;
+    }
+
+
+export const getGetDossierLevelColorsQueryOptions = <TData = Awaited<ReturnType<typeof getDossierLevelColors>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDossierLevelColors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDossierLevelColorsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDossierLevelColors>>> = ({ signal }) => getDossierLevelColors({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDossierLevelColors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDossierLevelColorsQueryResult = NonNullable<Awaited<ReturnType<typeof getDossierLevelColors>>>
+export type GetDossierLevelColorsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get visible dossier level colors
+ */
+
+export function useGetDossierLevelColors<TData = Awaited<ReturnType<typeof getDossierLevelColors>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDossierLevelColors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDossierLevelColorsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateDossierLevelColorsUrl = () => {
+
+
+
+
+  return `/api/settings/dossier-level-colors`
+}
+
+/**
+ * @summary Update visible dossier level colors
+ */
+export const updateDossierLevelColors = async (dossierLevelColors: DossierLevelColors, options?: RequestInit): Promise<DossierLevelColors> => {
+
+  return customFetch<DossierLevelColors>(getUpdateDossierLevelColorsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(dossierLevelColors)
+  }
+);}
+
+
+
+
+export const getUpdateDossierLevelColorsMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDossierLevelColors>>, TError,{data: BodyType<DossierLevelColors>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDossierLevelColors>>, TError,{data: BodyType<DossierLevelColors>}, TContext> => {
+
+const mutationKey = ['updateDossierLevelColors'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDossierLevelColors>>, {data: BodyType<DossierLevelColors>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateDossierLevelColors(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDossierLevelColorsMutationResult = NonNullable<Awaited<ReturnType<typeof updateDossierLevelColors>>>
+    export type UpdateDossierLevelColorsMutationBody = BodyType<DossierLevelColors>
+    export type UpdateDossierLevelColorsMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update visible dossier level colors
+ */
+export const useUpdateDossierLevelColors = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDossierLevelColors>>, TError,{data: BodyType<DossierLevelColors>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDossierLevelColors>>,
+        TError,
+        {data: BodyType<DossierLevelColors>},
+        TContext
+      > => {
+      return useMutation(getUpdateDossierLevelColorsMutationOptions(options));
+    }
+
+export const getResetDossierLevelColorsUrl = () => {
+
+
+
+
+  return `/api/settings/dossier-level-colors`
+}
+
+/**
+ * @summary Reset visible dossier level colors to defaults
+ */
+export const resetDossierLevelColors = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getResetDossierLevelColorsUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getResetDossierLevelColorsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetDossierLevelColors>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetDossierLevelColors>>, TError,void, TContext> => {
+
+const mutationKey = ['resetDossierLevelColors'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetDossierLevelColors>>, void> = () => {
+
+
+          return  resetDossierLevelColors(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetDossierLevelColorsMutationResult = NonNullable<Awaited<ReturnType<typeof resetDossierLevelColors>>>
+
+    export type ResetDossierLevelColorsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reset visible dossier level colors to defaults
+ */
+export const useResetDossierLevelColors = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetDossierLevelColors>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetDossierLevelColors>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getResetDossierLevelColorsMutationOptions(options));
     }
 
 export const getGetProtocolNumberingConfigUrl = () => {

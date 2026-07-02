@@ -12,8 +12,25 @@ import {
   validateProtocolNumber,
   ProtocolNumberingError,
 } from "../lib/protocolNumbering";
+import {
+  DOSSIER_LEVEL_COLORS_SETTING_KEY,
+  DossierLevelColorsError,
+  loadDossierLevelColors,
+  normalizeDossierLevelColorsSettingValue,
+  resetDossierLevelColors,
+  saveDossierLevelColors,
+} from "../lib/dossierLevelColors";
 
 const router: IRouter = Router();
+
+router.get("/settings/dossier-level-colors", async (req: Request, res: Response) => {
+  try {
+    res.json(await loadDossierLevelColors());
+  } catch (err) {
+    req.log.error({ err }, "Error loading dossier level colors");
+    res.status(500).json({ error: "Errore caricamento colori livelli fascicolo" });
+  }
+});
 
 router.use("/settings", requireAnyRole(["admin"]));
 
@@ -26,6 +43,29 @@ router.get("/settings", async (req: Request, res: Response) => {
   } catch (err) {
     req.log.error({ err }, "Error listing settings");
     res.status(500).json({ error: "Failed to list settings" });
+  }
+});
+
+router.put("/settings/dossier-level-colors", async (req: Request, res: Response) => {
+  try {
+    res.json(await saveDossierLevelColors(req.body));
+  } catch (err) {
+    if (err instanceof DossierLevelColorsError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    req.log.error({ err }, "Error updating dossier level colors");
+    res.status(500).json({ error: "Errore salvataggio colori livelli fascicolo" });
+  }
+});
+
+router.delete("/settings/dossier-level-colors", async (req: Request, res: Response) => {
+  try {
+    await resetDossierLevelColors();
+    res.status(204).end();
+  } catch (err) {
+    req.log.error({ err }, "Error resetting dossier level colors");
+    res.status(500).json({ error: "Errore reset colori livelli fascicolo" });
   }
 });
 
@@ -94,17 +134,24 @@ router.put("/settings/:key", async (req: Request, res: Response) => {
   try {
     const key = req.params.key as string;
     const { value } = req.body as { value: string };
-    if (value === undefined || value === null) {
+    if (typeof value !== "string") {
       res.status(400).json({ error: "value is required" });
       return;
     }
+    const storedValue = key === DOSSIER_LEVEL_COLORS_SETTING_KEY
+      ? normalizeDossierLevelColorsSettingValue(value)
+      : value;
     await db.execute(
       sql`INSERT INTO app_settings (key, value, updated_at)
-          VALUES (${key}, ${value}, NOW())
-          ON CONFLICT (key) DO UPDATE SET value = ${value}, updated_at = NOW()`
+          VALUES (${key}, ${storedValue}, NOW())
+          ON CONFLICT (key) DO UPDATE SET value = ${storedValue}, updated_at = NOW()`
     );
-    res.json({ key, value });
+    res.json({ key, value: storedValue });
   } catch (err) {
+    if (err instanceof DossierLevelColorsError) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
     req.log.error({ err }, "Error updating setting");
     res.status(500).json({ error: "Failed to update setting" });
   }

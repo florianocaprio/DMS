@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Plus, BookOpen, ChevronRight, Pencil } from "lucide-react";
 import { ROLE_OPTIONS, roleInfo } from "@/lib/roles";
 import { useToast } from "@/hooks/use-toast";
+import { getDossierLevelColor, useDossierLevelColors } from "@/lib/dossier-level-colors";
 
 type Classification = {
   id: number;
@@ -62,6 +63,7 @@ export default function ClassificationsPage() {
   const { toast } = useToast();
   const { data: classifications, isLoading } = useListClassifications({ query: { queryKey: getListClassificationsQueryKey() } });
   const createClassification = useCreateClassification();
+  const levelColors = useDossierLevelColors();
   const [showNew, setShowNew] = useState(false);
   const [editItem, setEditItem] = useState<Classification | null>(null);
   const [form, setForm] = useState<ClassificationForm>(emptyForm);
@@ -134,11 +136,12 @@ export default function ClassificationsPage() {
   const ClassEntry = ({ c, depth }: { c: Classification; depth: number }) => {
     const children = getChildren(c.id);
     const role = c.responsibleRole ? roleInfo(c.responsibleRole) : null;
+    const levelColor = getDossierLevelColor(levelColors, c.level - 1);
     return (
       <div>
         <div
           className={`flex items-center gap-3 px-6 py-3 hover:bg-slate-50 border-b border-slate-50 ${depth > 0 ? "bg-slate-50/50" : ""}`}
-          style={{ paddingLeft: `${24 + depth * 20}px` }}
+          style={{ paddingLeft: `${24 + depth * 20}px`, borderLeft: `4px solid ${levelColor.foreground}` }}
         >
           {depth > 0 && <ChevronRight className="h-3 w-3 text-slate-300 flex-shrink-0" />}
           <span className="font-mono text-xs font-semibold text-slate-500 w-24 flex-shrink-0">{c.code}</span>
@@ -146,7 +149,10 @@ export default function ClassificationsPage() {
           <span className="text-xs text-slate-400 flex-1 truncate">{c.description ?? "—"}</span>
           {role && <Badge className={`text-xs border ${role.color}`}>{role.label}</Badge>}
           {c.retentionYears != null && <Badge variant="outline" className="text-xs">{c.retentionYears} anni</Badge>}
-          <Badge className={`text-xs ${c.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-400"}`}>
+          <Badge
+            className={`text-xs ${c.isActive ? "" : "bg-slate-100 text-slate-400"}`}
+            style={c.isActive ? { backgroundColor: levelColor.background, color: levelColor.foreground, borderColor: levelColor.foreground } : undefined}
+          >
             {c.isActive ? `Livello ${c.level}` : "Disattiva"}
           </Badge>
           <Button

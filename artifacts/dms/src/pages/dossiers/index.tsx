@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, ChevronRight, Plus, FolderOpen, Users } from "lucide-react";
+import { getDossierLevelColor, getDossierVisibleLevel, useDossierLevelColors } from "@/lib/dossier-level-colors";
 
 const STATUSES = [
   { value: "open", label: "Aperto" },
@@ -33,6 +34,7 @@ export default function DossiersPage() {
   const { data: users } = useListUsers({}, { query: { queryKey: getListUsersQueryKey() } });
   const { data: classifications } = useListClassifications({ query: { queryKey: getListClassificationsQueryKey() } });
   const createDossier = useCreateDossier();
+  const levelColors = useDossierLevelColors();
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -118,32 +120,48 @@ export default function DossiersPage() {
                 id: number; code: string; title: string; area?: string | null;
                 status: string; responsibleName?: string | null; documentCount?: number;
                 protocolCount?: number; year: number; parentCode?: string | null; parentId?: number | null;
-                classificationCode?: string | null; classificationTitle?: string | null;
-              }>).map((d) => (
-                <tr key={d.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => window.location.href = `/dossiers/${d.id}`}>
-                  <td className="px-6 py-3">
-                    <Link href={`/dossiers/${d.id}`} className="font-mono text-xs font-medium text-slate-900 hover:text-blue-700">{d.code}</Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-slate-800 font-medium line-clamp-1">{d.title}</span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-400 text-xs font-mono">{d.parentCode ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">
-                    {d.classificationCode ? (
-                      <span>
-                        <span className="font-mono text-slate-400">{d.classificationCode}</span>
-                        {d.classificationTitle ? ` - ${d.classificationTitle}` : ""}
+                classificationCode?: string | null; classificationTitle?: string | null; depth?: number;
+              }>).map((d) => {
+                const level = getDossierVisibleLevel(d.depth);
+                const levelColor = getDossierLevelColor(levelColors, d.depth);
+
+                return (
+                  <tr
+                    key={d.id}
+                    className="hover:bg-slate-50 cursor-pointer"
+                    style={{ borderLeft: `4px solid ${levelColor.foreground}` }}
+                    onClick={() => window.location.href = `/dossiers/${d.id}`}
+                  >
+                    <td className="px-6 py-3">
+                      <Link href={`/dossiers/${d.id}`} className="font-mono text-xs font-medium text-slate-900 hover:text-blue-700">{d.code}</Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-slate-800 font-medium line-clamp-1">{d.title}</span>
+                      <span
+                        className="mt-1 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+                        style={{ backgroundColor: levelColor.background, color: levelColor.foreground, borderColor: levelColor.foreground }}
+                      >
+                        Livello {level}
                       </span>
-                    ) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{d.area ?? "—"}</td>
-                  <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
-                  <td className="px-4 py-3 text-slate-600 text-xs">{d.responsibleName ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{d.documentCount ?? 0}</td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{d.protocolCount ?? 0}</td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{d.year}</td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3 text-slate-400 text-xs font-mono">{d.parentCode ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 text-xs">
+                      {d.classificationCode ? (
+                        <span>
+                          <span className="font-mono text-slate-400">{d.classificationCode}</span>
+                          {d.classificationTitle ? ` - ${d.classificationTitle}` : ""}
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 text-xs">{d.area ?? "—"}</td>
+                    <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
+                    <td className="px-4 py-3 text-slate-600 text-xs">{d.responsibleName ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-500 text-xs">{d.documentCount ?? 0}</td>
+                    <td className="px-4 py-3 text-slate-500 text-xs">{d.protocolCount ?? 0}</td>
+                    <td className="px-4 py-3 text-slate-500 text-xs">{d.year}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
