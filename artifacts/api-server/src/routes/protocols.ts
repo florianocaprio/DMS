@@ -5,6 +5,12 @@ import { eq, sql, desc, and } from "drizzle-orm";
 import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
 import { getEffectiveMemberships, materializeLegacyMembership } from "../lib/memberships";
 import {
+  firstAssociationError,
+  firstMissingDossierId,
+  loadDossierMap,
+  protocolAssociationError,
+} from "../lib/dossierStatusRules";
+import {
   loadProtocolNumberingConfig,
   renderProtocolNumber,
   validateProtocolNumber,
@@ -96,6 +102,25 @@ router.get("/protocols/:id", async (req, res): Promise<void> => {
 
 router.post("/protocols", async (req, res): Promise<void> => {
   const { type, subject, description, sender, recipients, ccRecipients, channel, confidentiality, priority, dossierId, dossierIds, classificationId, documentId, assignedToId, notes } = req.body;
+
+  // Determine primary + extra dossier memberships before allocating a number:
+  // failed filings must not create a protocol or consume a progressive number.
+  const extras: number[] = Array.isArray(dossierIds) ? dossierIds.map((x: unknown) => Number(x)).filter((n: number) => !Number.isNaN(n)) : [];
+  let primary: number | null = dossierId ? Number(dossierId) : null;
+  if (primary == null && extras.length > 0) primary = extras[0];
+  const memberIds = Array.from(new Set([...(primary != null ? [primary] : []), ...extras]));
+  const validatedDossierMap = await loadDossierMap(memberIds);
+  const missingDossierId = firstMissingDossierId(memberIds, validatedDossierMap);
+  if (missingDossierId != null) {
+    res.status(404).json({ error: `Fascicolo ${missingDossierId} non trovato` });
+    return;
+  }
+  const associationError = firstAssociationError(memberIds, validatedDossierMap, protocolAssociationError);
+  if (associationError) {
+    res.status(400).json({ error: associationError });
+    return;
+  }
+
   let number: string;
   try {
     number = await generateNumber(type);
@@ -108,19 +133,9 @@ router.post("/protocols", async (req, res): Promise<void> => {
   }
   const year = new Date().getFullYear();
 
-  // Determine primary + extra dossier memberships
-  const extras: number[] = Array.isArray(dossierIds) ? dossierIds.map((x: unknown) => Number(x)).filter((n: number) => !Number.isNaN(n)) : [];
-  let primary: number | null = dossierId ? Number(dossierId) : null;
-  if (primary == null && extras.length > 0) primary = extras[0];
-  const memberIds = Array.from(new Set([...(primary != null ? [primary] : []), ...extras]));
   let effectiveClassificationId = classificationId ? Number(classificationId) : null;
   if (!effectiveClassificationId && primary) {
-    const [primaryDossier] = await db
-      .select({ classificationId: dossiersTable.classificationId })
-      .from(dossiersTable)
-      .where(eq(dossiersTable.id, primary))
-      .limit(1);
-    effectiveClassificationId = primaryDossier?.classificationId ?? null;
+    effectiveClassificationId = validatedDossierMap.get(primary)?.classificationId ?? null;
   }
 
   const [p] = await db.insert(protocolsTable).values({
@@ -162,6 +177,20 @@ router.patch("/protocols/:id", async (req, res): Promise<void> => {
   if (notes !== undefined) updates.notes = notes;
   const [prev] = await db.select().from(protocolsTable).where(eq(protocolsTable.id, id)).limit(1);
   if (!prev) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (dossierId !== undefined && dossierId != null) {
+    const newPrimary = Number(dossierId);
+    const dossierMap = await loadDossierMap([newPrimary]);
+    if (firstMissingDossierId([newPrimary], dossierMap) != null) {
+      res.status(404).json({ error: "Fascicolo non trovato" });
+      return;
+    }
+    const associationError = firstAssociationError([newPrimary], dossierMap, protocolAssociationError);
+    if (associationError) {
+      res.status(400).json({ error: associationError });
+      return;
+    }
+  }
 
   // Existence is confirmed above, so the junction is only ever mutated for a
   // real protocol. The protocol update and the primary-membership change run in
@@ -234,6 +263,11 @@ router.post("/protocols/:id/dossiers", async (req, res): Promise<void> => {
   if (!p) { res.status(404).json({ error: "Protocollo non trovato" }); return; }
   const [dossier] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, Number(dossierId))).limit(1);
   if (!dossier) { res.status(404).json({ error: "Fascicolo non trovato" }); return; }
+  const associationError = protocolAssociationError(dossier);
+  if (associationError) {
+    res.status(400).json({ error: associationError });
+    return;
+  }
 
   const did = Number(dossierId);
   await db.transaction(async (tx) => {

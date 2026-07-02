@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/shared/status-badges";
 import { useToast } from "@/hooks/use-toast";
+import { useLocalAuth } from "@/lib/local-auth";
 import DossierWorkflowTab from "./workflow-tab";
 import {
   ArrowLeft,
@@ -37,6 +38,7 @@ interface Dossier {
   year: number;
   area: string | null;
   confidentiality: string;
+  isDefault?: boolean;
   parentId: number | null;
   parentCode: string | null;
   parentTitle: string | null;
@@ -119,6 +121,10 @@ const TYPE_LABELS: Record<string, string> = {
   reserved: "Riservato",
 };
 
+function canReopenDossier(role: string | null | undefined) {
+  return role === "admin" || role === "protocol_manager";
+}
+
 // Max nesting levels of sub-fascicoli (mirrors the API MAX_SUB_LEVELS).
 const MAX_SUB_LEVELS = 4;
 
@@ -151,6 +157,7 @@ interface Props {
 export default function DossierDetail({ id }: Props) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { user } = useLocalAuth();
   const dossierId = Number(id);
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
@@ -171,7 +178,7 @@ export default function DossierDetail({ id }: Props) {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ title: "", description: "", area: "", status: "", confidentiality: "", parentId: "", classificationId: "" });
   const [saving, setSaving] = useState(false);
-  const [allDossiers, setAllDossiers] = useState<{ id: number; code: string; title: string }[]>([]);
+  const [allDossiers, setAllDossiers] = useState<{ id: number; code: string; title: string; status: string }[]>([]);
   const [allClassifications, setAllClassifications] = useState<{ id: number; code: string; title: string; isActive?: boolean }[]>([]);
 
   // Initial load
@@ -248,7 +255,7 @@ export default function DossierDetail({ id }: Props) {
     setEditing(true);
     if (allDossiers.length === 0) {
       try {
-        const list = await apiFetch<{ items: { id: number; code: string; title: string }[] }>(`/dossiers?limit=500`);
+        const list = await apiFetch<{ items: { id: number; code: string; title: string; status: string }[] }>(`/dossiers?limit=500`);
         setAllDossiers(list.items ?? []);
       } catch {
         // selector falls back to "Nessuno" only
@@ -285,6 +292,23 @@ export default function DossierDetail({ id }: Props) {
     }
   };
 
+  const handleReopen = async () => {
+    setSaving(true);
+    try {
+      const updated = await apiFetch<Dossier>(`/dossiers/${dossierId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "open" }),
+      });
+      setDossier(updated);
+      setEditForm((f) => ({ ...f, status: updated.status }));
+      toast({ title: "Fascicolo riaperto" });
+    } catch (e) {
+      toast({ title: "Errore", description: String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ── Guards ────────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -311,6 +335,18 @@ export default function DossierDetail({ id }: Props) {
 
   const nestBg = dossier.depth > 0 ? NEST_BG[Math.min(dossier.depth, MAX_SUB_LEVELS)] : undefined;
   const atDepthLimit = dossier.depth >= MAX_SUB_LEVELS;
+  const canReopen = canReopenDossier(user?.role);
+  const canEditDossier = dossier.status !== "archived";
+  const isOpenDossier = dossier.status === "open";
+  const statusOptions = [
+    { value: "open", label: "Aperto" },
+    { value: "closed", label: "Chiuso" },
+    { value: "archived", label: "Archiviato" },
+  ].filter((option) => {
+    if (dossier.isDefault) return option.value === "open";
+    if (dossier.status === "closed" && option.value === "open" && !canReopen) return false;
+    return true;
+  });
 
   return (
     <div
@@ -365,9 +401,9 @@ export default function DossierDetail({ id }: Props) {
                       value={editForm.status}
                       onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
                     >
-                      <option value="open">Aperto</option>
-                      <option value="closed">Chiuso</option>
-                      <option value="archived">Archiviato</option>
+                      {statusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
                   ) : (
                     <StatusBadge status={dossier.status} />
@@ -387,9 +423,18 @@ export default function DossierDetail({ id }: Props) {
                   </Button>
                 </>
               ) : (
-                <Button size="sm" variant="outline" onClick={startEditing}>
-                  <Edit2 className="w-3.5 h-3.5 mr-1.5" />Modifica
-                </Button>
+                <>
+                  {dossier.status === "closed" && canReopen && (
+                    <Button size="sm" variant="outline" onClick={handleReopen} disabled={saving}>
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" />Riapri
+                    </Button>
+                  )}
+                  {canEditDossier && (
+                    <Button size="sm" variant="outline" onClick={startEditing}>
+                      <Edit2 className="w-3.5 h-3.5 mr-1.5" />Modifica
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -463,7 +508,7 @@ export default function DossierDetail({ id }: Props) {
                   >
                     <option value="">Nessuno</option>
                     {allDossiers
-                      .filter(d => d.id !== dossier.id)
+                      .filter(d => d.id !== dossier.id && d.status === "open")
                       .map(d => (
                         <option key={d.id} value={String(d.id)}>{d.code} — {d.title}</option>
                       ))}
@@ -660,7 +705,9 @@ export default function DossierDetail({ id }: Props) {
             <div>
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/40">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sotto-fascicoli</span>
-                {atDepthLimit ? (
+                {!isOpenDossier ? (
+                  <span className="text-xs text-muted-foreground">Disponibile solo per fascicoli aperti</span>
+                ) : atDepthLimit ? (
                   <span className="text-xs text-muted-foreground">Limite di {MAX_SUB_LEVELS} livelli raggiunto</span>
                 ) : (
                   <Button size="sm" variant="outline" onClick={() => setShowNewChild((v) => !v)}>
@@ -668,7 +715,7 @@ export default function DossierDetail({ id }: Props) {
                   </Button>
                 )}
               </div>
-              {showNewChild && (
+              {showNewChild && isOpenDossier && (
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-muted/20">
                   <Input
                     value={childTitle}

@@ -60,6 +60,14 @@ interface DocItem {
   createdAt: string;
 }
 
+interface DossierOption {
+  id: number;
+  code: string;
+  title: string;
+  status: string;
+  isDefault?: boolean;
+}
+
 function useAttachments(documentId: number | null) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loaded, setLoaded] = useState<number | null>(null);
@@ -108,8 +116,9 @@ export default function DocumentsPage() {
   const items = (data?.items ?? []) as DocItem[];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
-  const dossierList = (dossiers?.items ?? []) as Array<{ id: number; code: string; title: string; isDefault?: boolean }>;
-  const defaultDossier = dossierList.find((d) => d.isDefault);
+  const dossierList = (dossiers?.items ?? []) as DossierOption[];
+  const openDossiers = dossierList.filter((d) => d.status === "open");
+  const defaultDossier = openDossiers.find((d) => d.isDefault);
 
   // New documents default to the "Archivio Documenti" fascicolo (the user can
   // still pick another, or "Nessuno", in the dialog).
@@ -407,7 +416,7 @@ export default function DocumentsPage() {
                 <SelectTrigger><SelectValue placeholder="Nessuno" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nessuno</SelectItem>
-                  {(dossiers?.items ?? []).map((d: { id: number; code: string; title: string }) => (
+                  {openDossiers.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
                   ))}
                 </SelectContent>

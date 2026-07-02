@@ -4,8 +4,10 @@ import {
   pool,
   usersTable,
   dossiersTable,
+  documentsTable,
   protocolsTable,
   protocolDossiersTable,
+  documentDossiersTable,
   fileAttachmentsTable,
   activityLogTable,
   dossierWorkflowRulesTable,
@@ -112,6 +114,7 @@ export async function closeDb(): Promise<void> {
  */
 export class Fixtures {
   dossierIds: number[] = [];
+  documentIds: number[] = [];
   protocolIds: number[] = [];
   attachmentIds: number[] = [];
   userIds: number[] = [];
@@ -122,6 +125,10 @@ export class Fixtures {
 
   trackDossier(id: number): number {
     this.dossierIds.push(id);
+    return id;
+  }
+  trackDocument(id: number): number {
+    this.documentIds.push(id);
     return id;
   }
   trackAttachment(id: number): number {
@@ -161,6 +168,22 @@ export class Fixtures {
       .returning();
     this.protocolIds.push(p.id);
     return p;
+  }
+
+  async createDocument(
+    overrides: Partial<typeof documentsTable.$inferInsert> = {},
+  ): Promise<typeof documentsTable.$inferSelect> {
+    const [d] = await db
+      .insert(documentsTable)
+      .values({
+        title: `Documento ${uniqueSuffix()}`,
+        type: "delibera",
+        createdById: 1,
+        ...overrides,
+      })
+      .returning();
+    this.documentIds.push(d.id);
+    return d;
   }
 
   /**
@@ -307,6 +330,11 @@ export class Fixtures {
       await db.delete(fileAttachmentsTable).where(inArray(fileAttachmentsTable.protocolId, this.protocolIds));
       await db.delete(protocolsTable).where(inArray(protocolsTable.id, this.protocolIds));
     }
+    if (this.documentIds.length) {
+      await db.delete(documentDossiersTable).where(inArray(documentDossiersTable.documentId, this.documentIds));
+      await db.delete(fileAttachmentsTable).where(inArray(fileAttachmentsTable.documentId, this.documentIds));
+      await db.delete(documentsTable).where(inArray(documentsTable.id, this.documentIds));
+    }
     if (this.attachmentIds.length) {
       await db.delete(fileAttachmentsTable).where(inArray(fileAttachmentsTable.id, this.attachmentIds));
     }
@@ -329,6 +357,7 @@ export class Fixtures {
       await db.delete(usersTable).where(inArray(usersTable.id, this.userIds));
     }
     this.protocolIds = [];
+    this.documentIds = [];
     this.attachmentIds = [];
     this.dossierIds = [];
     this.userIds = [];

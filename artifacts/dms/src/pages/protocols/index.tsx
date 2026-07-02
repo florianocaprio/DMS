@@ -76,6 +76,13 @@ interface ProtocolItem {
   notes?: string | null;
 }
 
+interface DossierOption {
+  id: number;
+  code: string;
+  title: string;
+  status: string;
+}
+
 export default function ProtocolsPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -114,6 +121,8 @@ export default function ProtocolsPage() {
   const items = (data?.items ?? []) as ProtocolItem[];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
+  const dossierList = (dossiers?.items ?? []) as DossierOption[];
+  const openDossiers = dossierList.filter((d) => d.status === "open");
 
   async function handleSelectProtocol(p: ProtocolItem) {
     setSelectedProtocol(p);
@@ -441,7 +450,7 @@ export default function ProtocolsPage() {
                 <Select value={addDossierSel} onValueChange={setAddDossierSel}>
                   <SelectTrigger className="h-7 text-xs flex-1"><SelectValue placeholder="Aggiungi a fascicolo" /></SelectTrigger>
                   <SelectContent>
-                    {(dossiers?.items ?? [])
+                    {openDossiers
                       .filter((d: { id: number }) => !memberships.some((m) => m.dossierId === d.id))
                       .map((d: { id: number; code: string; title: string }) => (
                         <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
@@ -508,7 +517,7 @@ export default function ProtocolsPage() {
                 <SelectTrigger><SelectValue placeholder="Nessun fascicolo" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nessuno</SelectItem>
-                  {(dossiers?.items ?? []).map((d: { id: number; code: string; title: string }) => (
+                  {openDossiers.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
                   ))}
                 </SelectContent>
@@ -531,12 +540,12 @@ export default function ProtocolsPage() {
             <div className="col-span-2">
               <Label className="text-xs text-slate-600 mb-1 block">Altri fascicoli (archiviazione multipla)</Label>
               <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-md p-2 space-y-1">
-                {(dossiers?.items ?? []).filter((d: { id: number }) => String(d.id) !== form.dossierId).length === 0 ? (
+                {openDossiers.filter((d) => String(d.id) !== form.dossierId).length === 0 ? (
                   <p className="text-xs text-slate-400 px-1 py-0.5">Nessun altro fascicolo disponibile</p>
                 ) : (
-                  (dossiers?.items ?? [])
-                    .filter((d: { id: number }) => String(d.id) !== form.dossierId)
-                    .map((d: { id: number; code: string; title: string }) => (
+                  openDossiers
+                    .filter((d) => String(d.id) !== form.dossierId)
+                    .map((d) => (
                       <label key={d.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
                         <input
                           type="checkbox"
