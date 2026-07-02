@@ -4,7 +4,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import app from "../app";
 import { hashPassword } from "../lib/password";
-import { ALLOWED_DOMAIN, closeDb, uniqueSuffix } from "./helpers";
+import { ALLOWED_DOMAIN, closeDb, sessionCookies, uniqueSuffix } from "./helpers";
 
 /**
  * Exercises the local username/password login and the server-side forced
@@ -62,6 +62,30 @@ describe("local auth + forced password change", () => {
     expect(res.status).toBe(200);
     expect(res.body.mustChangePassword).toBe(true);
     expect(res.body.passwordHash).toBeUndefined();
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.some((c) => c.startsWith("pd_session="))).toBe(true);
+    expect(cookies.some((c) => c.startsWith("pd_last_activity="))).toBe(true);
+  });
+
+  it("refreshes the activity cookie from the dedicated activity endpoint", async () => {
+    const agent = request.agent(app);
+    await agent.post("/api/auth/login").send({ username, password: initialPassword }).expect(200);
+
+    const res = await agent.post("/api/auth/activity");
+    expect(res.status).toBe(204);
+    const cookies = res.headers["set-cookie"] as unknown as string[];
+    expect(cookies.some((c) => c.startsWith("pd_last_activity="))).toBe(true);
+  });
+
+  it("rejects protected routes when the activity cookie is expired", async () => {
+    const staleActivityAt = Date.now() - 11 * 60 * 1000;
+    const res = await request(app)
+      .post("/api/auth/change-password")
+      .set("Cookie", sessionCookies(userId, staleActivityAt))
+      .send({ currentPassword: initialPassword, newPassword });
+
+    expect(res.status).toBe(401);
+    expect(res.body.reason).toBe("SESSION_IDLE_TIMEOUT");
   });
 
   it("blocks protected routes while a password change is pending", async () => {

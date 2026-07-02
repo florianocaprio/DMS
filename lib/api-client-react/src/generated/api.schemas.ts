@@ -9,6 +9,40 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface LocalUser {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  /** @nullable */
+  username?: string | null;
+  /** @nullable */
+  avatarUrl?: string | null;
+  isActive: boolean;
+  mustChangePassword: boolean;
+}
+
+export interface LoginInput {
+  username: string;
+  password: string;
+}
+
+export interface BootstrapStatus {
+  setupMode: boolean;
+}
+
+export interface RegisterAdminInput {
+  name: string;
+  username: string;
+  password: string;
+  email?: string;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface DashboardStats {
   protocolsToday: number;
   protocolsThisMonth: number;
@@ -826,6 +860,7 @@ export interface SearchResults {
 
 export interface ErrorEnvelope {
   error: string;
+  reason?: string;
 }
 
 export interface UploadUrlRequest {

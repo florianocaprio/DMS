@@ -1,9 +1,16 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/password";
 import { isSetupMode, loginCapableAdminCondition } from "../lib/bootstrap";
+import {
+  clearLocalSessionCookies,
+  isSessionInactive,
+  readLocalSessionUserId,
+  refreshLocalSessionActivity,
+  setLocalSessionCookies,
+} from "../lib/localSession";
 
 const router = Router();
 
@@ -11,33 +18,6 @@ const router = Router();
 // requests via a Postgres transaction-level advisory lock, so the
 // "no more creation once an admin exists" invariant holds even under races.
 const BOOTSTRAP_ADVISORY_LOCK_KEY = 920_117;
-
-// Name of the signed cookie that carries the local-session user id.
-export const LOCAL_SESSION_COOKIE = "pd_session";
-
-const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-// Cookie security is derived from the ACTUAL connection protocol (req.secure),
-// not NODE_ENV, so the same production build works in both environments:
-//   - HTTPS (Replit preview/iframe, or any TLS reverse proxy):
-//       Secure + SameSite=None — None is required for the cross-site iframe
-//       preview, and the browser only accepts SameSite=None when Secure is set.
-//   - HTTP (self-hosted on plain http://, e.g. localhost:8082):
-//       non-Secure + SameSite=Lax — a Secure cookie would be silently dropped
-//       by the browser over HTTP, leaving the session never persisted.
-// req.secure reflects the X-Forwarded-Proto header because the app trusts the
-// proxy (see `trust proxy` in app.ts).
-function cookieOptions(req: Request) {
-  const isHttps = req.secure;
-  return {
-    httpOnly: true,
-    sameSite: (isHttps ? "none" : "lax") as "none" | "lax",
-    secure: isHttps,
-    signed: true,
-    maxAge: COOKIE_MAX_AGE_MS,
-    path: "/",
-  };
-}
 
 function publicUser(u: typeof usersTable.$inferSelect) {
   return {
@@ -75,13 +55,13 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
 
   await db.update(usersTable).set({ lastLoginAt: new Date() }).where(eq(usersTable.id, user.id));
-  res.cookie(LOCAL_SESSION_COOKIE, String(user.id), cookieOptions(req));
+  setLocalSessionCookies(req, res, user.id);
   res.json(publicUser(user));
 });
 
 // POST /auth/logout — clears the local session cookie. Public (idempotent).
 router.post("/auth/logout", async (req, res): Promise<void> => {
-  res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(req), maxAge: undefined });
+  clearLocalSessionCookies(req, res);
   res.status(204).end();
 });
 
@@ -179,7 +159,7 @@ router.post("/auth/bootstrap", async (req, res): Promise<void> => {
       res.status(409).json({ error: "Email già in uso" });
       return;
     }
-    res.cookie(LOCAL_SESSION_COOKIE, String(outcome.user.id), cookieOptions(req));
+    setLocalSessionCookies(req, res, outcome.user.id);
     res.status(201).json(publicUser(outcome.user));
   } catch (err) {
     req.log.error({ err }, "first admin registration failed");
@@ -235,19 +215,28 @@ router.post("/auth/change-password", async (req, res): Promise<void> => {
 // GET /auth/session — returns the local-session user if the signed cookie is
 // valid, otherwise 401. Checks only the local signed session cookie. Public.
 router.get("/auth/session", async (req, res): Promise<void> => {
-  const raw = req.signedCookies?.[LOCAL_SESSION_COOKIE];
-  const id = Number(raw);
-  if (!raw || Number.isNaN(id)) {
+  const id = readLocalSessionUserId(req);
+  if (!id) {
     res.status(401).json({ error: "Nessuna sessione locale" });
+    return;
+  }
+  if (isSessionInactive(req)) {
+    clearLocalSessionCookies(req, res);
+    res.status(401).json({ error: "Sessione scaduta per inattività", reason: "SESSION_IDLE_TIMEOUT" });
     return;
   }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!user || !user.isActive) {
-    res.clearCookie(LOCAL_SESSION_COOKIE, { ...cookieOptions(req), maxAge: undefined });
+    clearLocalSessionCookies(req, res);
     res.status(401).json({ error: "Sessione non valida" });
     return;
   }
   res.json(publicUser(user));
+});
+
+router.post("/auth/activity", async (req, res): Promise<void> => {
+  refreshLocalSessionActivity(req, res);
+  res.status(204).end();
 });
 
 export default router;

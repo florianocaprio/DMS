@@ -17,6 +17,103 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Log in with local credentials
+ */
+export const LoginBody = zod.object({
+  "username": zod.string(),
+  "password": zod.string()
+})
+
+export const LoginResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.string(),
+  "username": zod.string().nullish(),
+  "avatarUrl": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean()
+})
+
+
+/**
+ * @summary Clear the local session
+ */
+export const LogoutResponse = zod.void()
+
+
+/**
+ * @summary Get the current local session
+ */
+export const GetAuthSessionResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.string(),
+  "username": zod.string().nullish(),
+  "avatarUrl": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean()
+})
+
+
+/**
+ * @summary Refresh the local session activity timestamp after real user activity
+ */
+export const RefreshAuthActivityResponse = zod.void()
+
+
+/**
+ * @summary Check whether first-run bootstrap is required
+ */
+export const GetAuthBootstrapResponse = zod.object({
+  "setupMode": zod.boolean()
+})
+
+
+/**
+ * @summary Create the first administrator account
+ */
+export const BootstrapAdminBody = zod.object({
+  "name": zod.string(),
+  "username": zod.string(),
+  "password": zod.string(),
+  "email": zod.string().optional()
+})
+
+export const BootstrapAdminResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.string(),
+  "username": zod.string().nullish(),
+  "avatarUrl": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean()
+})
+
+
+/**
+ * @summary Change the current local user's password
+ */
+export const ChangePasswordBody = zod.object({
+  "currentPassword": zod.string(),
+  "newPassword": zod.string()
+})
+
+export const ChangePasswordResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.string(),
+  "username": zod.string().nullish(),
+  "avatarUrl": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "mustChangePassword": zod.boolean()
+})
+
+
+/**
  * @summary Request a presigned URL for file upload
  */
 

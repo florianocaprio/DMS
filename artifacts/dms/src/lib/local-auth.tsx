@@ -1,6 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 const API = "/api";
+const SESSION_INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
+const ACTIVITY_REFRESH_THROTTLE_MS = 60 * 1000;
 
 export interface LocalUser {
   id: number;
@@ -30,6 +32,7 @@ interface LocalAuthValue {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /** First-run only: register the first administrator; logs them in on success. */
   registerAdmin: (input: RegisterAdminInput) => Promise<void>;
+  sessionExpiredMessage: string | null;
 }
 
 const LocalAuthContext = createContext<LocalAuthValue | null>(null);
@@ -38,6 +41,8 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupMode, setSetupMode] = useState(false);
+  const [sessionExpiredMessage, setSessionExpiredMessage] = useState<string | null>(null);
+  const lastActivityRefreshAtRef = useRef(0);
 
   // Bootstrap: in parallel, detect an existing local session (signed cookie)
   // and whether the app still needs first-run setup (no admin exists yet).
@@ -50,7 +55,14 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
           fetch(`${API}/auth/bootstrap`, { credentials: "include" }),
         ]);
         if (cancelled) return;
-        if (sessionRes.ok) setUser((await sessionRes.json()) as LocalUser);
+        if (sessionRes.ok) {
+          setUser((await sessionRes.json()) as LocalUser);
+        } else {
+          const err = (await sessionRes.json().catch(() => ({}))) as { reason?: string };
+          if (err.reason === "SESSION_IDLE_TIMEOUT") {
+            setSessionExpiredMessage("Sessione scaduta per inattività. Effettua nuovamente l'accesso.");
+          }
+        }
         if (bootstrapRes.ok) {
           const b = (await bootstrapRes.json()) as { setupMode?: boolean };
           setSetupMode(Boolean(b.setupMode));
@@ -78,6 +90,7 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(err.error ?? "Impossibile completare la registrazione");
     }
     // The endpoint also sets the session cookie, so we are logged in now.
+    setSessionExpiredMessage(null);
     setUser((await r.json()) as LocalUser);
     setSetupMode(false);
   }, []);
@@ -93,6 +106,7 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
       const err = (await r.json().catch(() => ({}))) as { error?: string };
       throw new Error(err.error ?? "Credenziali non valide");
     }
+    setSessionExpiredMessage(null);
     setUser((await r.json()) as LocalUser);
   }, []);
 
@@ -100,6 +114,7 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await fetch(`${API}/auth/logout`, { method: "POST", credentials: "include" });
     } finally {
+      setSessionExpiredMessage(null);
       setUser(null);
     }
   }, []);
@@ -115,11 +130,70 @@ export function LocalAuthProvider({ children }: { children: React.ReactNode }) {
       const err = (await r.json().catch(() => ({}))) as { error?: string };
       throw new Error(err.error ?? "Impossibile aggiornare la password");
     }
+    setSessionExpiredMessage(null);
     setUser((await r.json()) as LocalUser);
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    let stopped = false;
+    let timeoutId: number | null = null;
+
+    const expireSession = async () => {
+      if (stopped) return;
+      stopped = true;
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+      try {
+        await fetch(`${API}/auth/logout`, { method: "POST", credentials: "include" });
+      } finally {
+        setUser(null);
+        setSessionExpiredMessage("Sessione scaduta per inattività. Effettua nuovamente l'accesso.");
+      }
+    };
+
+    const scheduleTimeout = () => {
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        void expireSession();
+      }, SESSION_INACTIVITY_TIMEOUT_MS);
+    };
+
+    const reportActivity = async () => {
+      if (stopped) return;
+      scheduleTimeout();
+      const now = Date.now();
+      if (now - lastActivityRefreshAtRef.current < ACTIVITY_REFRESH_THROTTLE_MS) return;
+      lastActivityRefreshAtRef.current = now;
+      try {
+        const res = await fetch(`${API}/auth/activity`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!res.ok) await expireSession();
+      } catch {
+        // A transient network error should not immediately log the user out;
+        // the local timer and backend cookie still enforce the deadline.
+      }
+    };
+
+    const onUserActivity = () => {
+      void reportActivity();
+    };
+
+    scheduleTimeout();
+    const events: Array<keyof WindowEventMap> = ["pointerdown", "keydown", "touchstart", "scroll", "focus"];
+    for (const event of events) window.addEventListener(event, onUserActivity, { passive: true, capture: true });
+
+    return () => {
+      stopped = true;
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+      for (const event of events) window.removeEventListener(event, onUserActivity, { capture: true });
+    };
+  }, [user]);
+
   return (
-    <LocalAuthContext.Provider value={{ user, loading, setupMode, login, logout, changePassword, registerAdmin }}>
+    <LocalAuthContext.Provider value={{ user, loading, setupMode, login, logout, changePassword, registerAdmin, sessionExpiredMessage }}>
       {children}
     </LocalAuthContext.Provider>
   );

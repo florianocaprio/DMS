@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ErrorEnvelope {
-  error: string;
-  reason?: string;
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
 }

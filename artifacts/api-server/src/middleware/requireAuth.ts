@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { clearLocalSessionCookies, isSessionInactive, readLocalSessionUserId } from "../lib/localSession";
 
 // Paths (relative to the /api mount) reachable without authentication. The
 // /auth/* endpoints implement the local login / first-run setup flow themselves.
@@ -14,13 +15,10 @@ const PUBLIC_PATHS = new Set([
   "/auth/bootstrap",
 ]);
 
-// Signed cookie carrying the local-session user id (set by routes/auth.ts).
-const LOCAL_SESSION_COOKIE = "pd_session";
-
-// The only protected path a user with a pending forced password change may
-// reach. Everything else is blocked until the password is changed, so the gate
-// is enforced server-side and not merely in the UI.
-const PASSWORD_CHANGE_PATH = "/auth/change-password";
+// Protected paths a user with a pending forced password change may reach.
+// Activity refresh is allowed so a user is not logged out while typing the new
+// password form.
+const PASSWORD_CHANGE_ALLOWED_PATHS = new Set(["/auth/change-password", "/auth/activity"]);
 
 /**
  * Express middleware: requires a valid local session (the signed `pd_session`
@@ -33,15 +31,20 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  const raw = req.signedCookies?.[LOCAL_SESSION_COOKIE];
-  const id = Number(raw);
-  if (!raw || Number.isNaN(id)) {
+  const id = readLocalSessionUserId(req);
+  if (!id) {
     res.status(401).json({ error: "Autenticazione richiesta" });
+    return;
+  }
+  if (isSessionInactive(req)) {
+    clearLocalSessionCookies(req, res);
+    res.status(401).json({ error: "Sessione scaduta per inattività", reason: "SESSION_IDLE_TIMEOUT" });
     return;
   }
 
   const [row] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
   if (!row || !row.isActive) {
+    clearLocalSessionCookies(req, res);
     res.status(401).json({ error: "Autenticazione richiesta" });
     return;
   }
@@ -51,7 +54,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   // Forced password change: block all protected routes except the
   // change-password endpoint until the user sets a new password.
-  if (row.mustChangePassword && req.path !== PASSWORD_CHANGE_PATH) {
+  if (row.mustChangePassword && !PASSWORD_CHANGE_ALLOWED_PATHS.has(req.path)) {
     res.status(403).json({ error: "Cambio password obbligatorio prima di continuare", mustChangePassword: true });
     return;
   }

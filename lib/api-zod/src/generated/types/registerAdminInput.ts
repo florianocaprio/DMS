@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface ErrorEnvelope {
-  error: string;
-  reason?: string;
+export interface RegisterAdminInput {
+  name: string;
+  username: string;
+  password: string;
+  email?: string;
 }
