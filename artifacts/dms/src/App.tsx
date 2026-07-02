@@ -45,7 +45,7 @@ function FullscreenLoader() {
 }
 
 function LoginScreen() {
-  const { login } = useLocalAuth();
+  const { login, sessionExpiredMessage } = useLocalAuth();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -101,7 +101,7 @@ function LoginScreen() {
               placeholder="••••••••"
             />
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {(error || sessionExpiredMessage) && <p className="text-xs text-destructive">{error ?? sessionExpiredMessage}</p>}
           <button
             type="submit"
             disabled={submitting || !username || !password}

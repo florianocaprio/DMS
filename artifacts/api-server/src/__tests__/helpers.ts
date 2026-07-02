@@ -23,16 +23,20 @@ export const ALLOWED_DOMAIN = "angeliinmoto.it";
 export const DEFAULT_TEST_USER_ID = 1;
 
 const LOCAL_SESSION_COOKIE = "pd_session";
+const LOCAL_SESSION_ACTIVITY_COOKIE = "pd_last_activity";
 
 /**
  * Builds the signed-cookie value the server expects for a local session,
  * mirroring how Express signs cookies with SESSION_SECRET. Tests use this to
  * authenticate as a specific local user without a full login round-trip.
  */
-function sessionCookie(userId: number): string {
+export function sessionCookies(userId: number, activityAt = Date.now()): string {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET is required to run the auth tests");
-  return `${LOCAL_SESSION_COOKIE}=${encodeURIComponent("s:" + sign(String(userId), secret))}`;
+  return [
+    `${LOCAL_SESSION_COOKIE}=${encodeURIComponent("s:" + sign(String(userId), secret))}`,
+    `${LOCAL_SESSION_ACTIVITY_COOKIE}=${encodeURIComponent("s:" + sign(String(activityAt), secret))}`,
+  ].join("; ");
 }
 
 type Method = "get" | "post" | "patch" | "put" | "delete";
@@ -48,7 +52,7 @@ export function agentFor(userId?: number) {
     (method: Method) =>
     (url: string) => {
       const t = agent[method](url);
-      return userId !== undefined ? t.set("Cookie", sessionCookie(userId)) : t;
+      return userId !== undefined ? t.set("Cookie", sessionCookies(userId)) : t;
     };
   return {
     get: wrap("get"),

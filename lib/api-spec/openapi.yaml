@@ -7,6 +7,8 @@ servers:
   - url: /api
     description: Base API path
 tags:
+  - name: auth
+    description: Authentication and local session operations
   - name: health
     description: Health operations
   - name: documents
@@ -47,6 +49,148 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # --- AUTH ---
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in with local credentials
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged-in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Clear the local session
+      responses:
+        "204":
+          description: Session cleared
+
+  /auth/session:
+    get:
+      operationId: getAuthSession
+      tags: [auth]
+      summary: Get the current local session
+      responses:
+        "200":
+          description: Logged-in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalUser"
+        "401":
+          description: Missing, invalid, or inactive session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/activity:
+    post:
+      operationId: refreshAuthActivity
+      tags: [auth]
+      summary: Refresh the local session activity timestamp after real user activity
+      responses:
+        "204":
+          description: Activity timestamp refreshed
+        "401":
+          description: Missing, invalid, or inactive session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/bootstrap:
+    get:
+      operationId: getAuthBootstrap
+      tags: [auth]
+      summary: Check whether first-run bootstrap is required
+      responses:
+        "200":
+          description: Bootstrap state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BootstrapStatus"
+    post:
+      operationId: bootstrapAdmin
+      tags: [auth]
+      summary: Create the first administrator account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterAdminInput"
+      responses:
+        "201":
+          description: Created administrator
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalUser"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "403":
+          description: Bootstrap already completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change the current local user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalUser"
+        "400":
+          description: Invalid password input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required or current password invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 
   # --- STORAGE ---
   /storage/uploads/request-url:
@@ -1544,6 +1688,80 @@ components:
           type: string
       required:
         - status
+
+    # --- AUTH ---
+    LocalUser:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - role
+        - isActive
+        - mustChangePassword
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        username:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        mustChangePassword:
+          type: boolean
+
+    LoginInput:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    BootstrapStatus:
+      type: object
+      required:
+        - setupMode
+      properties:
+        setupMode:
+          type: boolean
+
+    RegisterAdminInput:
+      type: object
+      required:
+        - name
+        - username
+        - password
+      properties:
+        name:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        email:
+          type: string
+
+    ChangePasswordInput:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
 
     # --- DASHBOARD ---
     DashboardStats:
@@ -3069,6 +3287,8 @@ components:
       required: [error]
       properties:
         error:
+          type: string
+        reason:
           type: string
 
     UploadUrlRequest:
