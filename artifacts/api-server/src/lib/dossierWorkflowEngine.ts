@@ -18,6 +18,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { sendMail } from "./mailer";
+import { documentAssociationError, protocolAssociationError } from "./dossierStatusRules";
 
 export type TargetType = "document" | "protocol";
 
@@ -287,8 +288,16 @@ export async function triggerDossierWorkflows(
       const target = Number(cfg.targetDossierId);
       // Guard: valid, existing target that differs from the source dossier.
       if (!Number.isInteger(target) || target <= 0 || target === dossierId) continue;
-      const [exists] = await db.select({ id: dossiersTable.id }).from(dossiersTable).where(eq(dossiersTable.id, target)).limit(1);
-      if (!exists) continue;
+      const [targetDossier] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, target)).limit(1);
+      if (!targetDossier) continue;
+      const associationError =
+        targetType === "protocol"
+          ? protocolAssociationError(targetDossier)
+          : documentAssociationError(targetDossier);
+      if (associationError) {
+        logger.warn({ ruleId: rule.id, targetType, targetId, targetDossierId: target }, associationError);
+        continue;
+      }
 
       try {
         if (rule.type === "move") {

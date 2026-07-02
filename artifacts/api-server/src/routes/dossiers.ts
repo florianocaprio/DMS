@@ -3,6 +3,14 @@ import { db } from "@workspace/db";
 import { dossiersTable, usersTable, classificationsTable, documentsTable, protocolsTable } from "@workspace/db";
 import { eq, sql, count, inArray } from "drizzle-orm";
 import { getEffectiveMemberships, getEffectiveDocumentMemberships } from "../lib/memberships";
+import {
+  ARCHIVED_DOSSIER_EDIT_MESSAGE,
+  ARCHIVED_DOSSIER_REOPEN_MESSAGE,
+  DEFAULT_DOSSIER_STATUS_MESSAGE,
+  canReopenDossier,
+  childDossierError,
+  isDossierStatus,
+} from "../lib/dossierStatusRules";
 
 const router = Router();
 
@@ -96,8 +104,15 @@ router.post("/dossiers", async (req, res): Promise<void> => {
   const code = `FASC-${year}-${String(existing.length + 1).padStart(4, "0")}`;
   let validParentId: number | null = null;
   if (parentId) {
-    const [parent] = await db.select({ id: dossiersTable.id }).from(dossiersTable).where(eq(dossiersTable.id, Number(parentId))).limit(1);
-    if (parent) validParentId = parent.id;
+    const [parent] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, Number(parentId))).limit(1);
+    if (parent) {
+      const error = childDossierError(parent);
+      if (error) {
+        res.status(400).json({ error });
+        return;
+      }
+      validParentId = parent.id;
+    }
   }
   if (validParentId != null) {
     const { parentOf } = await loadHierarchy();
@@ -120,20 +135,49 @@ router.post("/dossiers", async (req, res): Promise<void> => {
 router.patch("/dossiers/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const { title, description, status, area, confidentiality, responsibleId, classificationId, closedAt, parentId } = req.body;
+  const [current] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, id)).limit(1);
+  if (!current) { res.status(404).json({ error: "Not found" }); return; }
+
+  if (current.status === "archived") {
+    if (status === "open") res.status(400).json({ error: ARCHIVED_DOSSIER_REOPEN_MESSAGE });
+    else res.status(400).json({ error: ARCHIVED_DOSSIER_EDIT_MESSAGE });
+    return;
+  }
+  if (status !== undefined && !isDossierStatus(status)) {
+    res.status(400).json({ error: "Stato fascicolo non valido" });
+    return;
+  }
+  if (current.isDefault && status !== undefined && status !== "open" && status !== current.status) {
+    res.status(400).json({ error: DEFAULT_DOSSIER_STATUS_MESSAGE });
+    return;
+  }
+  if (current.status === "closed" && status === "open" && !canReopenDossier(req.currentUser?.role)) {
+    res.status(403).json({ error: "Permessi insufficienti per riaprire un fascicolo chiuso" });
+    return;
+  }
+
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;
   if (description !== undefined) updates.description = description;
-  if (status !== undefined) updates.status = status;
+  if (status !== undefined) {
+    updates.status = status;
+    if (status === "open") updates.closedAt = null;
+    if ((status === "closed" || status === "archived") && !current.closedAt) updates.closedAt = new Date();
+  }
   if (area !== undefined) updates.area = area;
   if (confidentiality !== undefined) updates.confidentiality = confidentiality;
   if (responsibleId !== undefined) updates.responsibleId = responsibleId;
   if (classificationId !== undefined) updates.classificationId = classificationId;
-  if (closedAt !== undefined) updates.closedAt = closedAt ? new Date(closedAt) : null;
+  if (closedAt !== undefined && status === undefined) updates.closedAt = closedAt ? new Date(closedAt) : null;
   if (parentId !== undefined) {
     const newParent = parentId == null ? null : Number(parentId);
     if (newParent != null) {
       if (newParent === id) { res.status(400).json({ error: "Un fascicolo non può essere padre di se stesso" }); return; }
       if (await wouldCreateCycle(id, newParent)) { res.status(400).json({ error: "Gerarchia non valida: ciclo rilevato" }); return; }
+      const [newParentDossier] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, newParent)).limit(1);
+      if (!newParentDossier) { res.status(404).json({ error: "Fascicolo padre non trovato" }); return; }
+      const error = childDossierError(newParentDossier);
+      if (error) { res.status(400).json({ error }); return; }
       const { parentOf, childrenOf } = await loadHierarchy();
       // New depth of this node + the height of its subtree must stay within limit.
       const newDepth = depthOf(parentOf, newParent) + 1;

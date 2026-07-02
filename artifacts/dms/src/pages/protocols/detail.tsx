@@ -101,6 +101,13 @@ interface DossierMembership {
   addedAt?: string | null;
 }
 
+interface DossierOption {
+  id: number;
+  code: string;
+  title: string;
+  status: string;
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 const API = "/api";
@@ -354,9 +361,9 @@ export default function ProtocolDetail({ id }: Props) {
     );
   }
 
-  const availableDossiers = (dossiers?.items ?? []).filter(
-    (d: { id: number }) => !memberships.some((m) => m.dossierId === d.id),
-  ) as { id: number; code: string; title: string }[];
+  const availableDossiers = ((dossiers?.items ?? []) as DossierOption[]).filter(
+    (d) => d.status === "open" && !memberships.some((m) => m.dossierId === d.id),
+  );
 
   const isRecipientType = protocol.type !== "incoming";
 

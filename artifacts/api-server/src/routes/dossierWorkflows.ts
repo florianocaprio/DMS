@@ -7,9 +7,11 @@ import {
   usersTable,
   documentsTable,
   protocolsTable,
+  dossiersTable,
   type InstanceParticipant,
 } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
+import { ARCHIVED_DOSSIER_EDIT_MESSAGE, workflowRuleError } from "../lib/dossierStatusRules";
 
 const router = Router();
 
@@ -31,6 +33,16 @@ router.post("/dossiers/:id/workflow-rules", async (req, res): Promise<void> => {
   const { type, name, appliesTo, config, isActive } = req.body;
   if (!type || !name) {
     res.status(400).json({ error: "type and name are required" });
+    return;
+  }
+  const [dossier] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, dossierId)).limit(1);
+  if (!dossier) {
+    res.status(404).json({ error: "Fascicolo non trovato" });
+    return;
+  }
+  const ruleError = workflowRuleError(dossier);
+  if (ruleError) {
+    res.status(400).json({ error: ruleError });
     return;
   }
   const [r] = await db
@@ -56,17 +68,33 @@ router.patch("/workflow-rules/:id", async (req, res): Promise<void> => {
   if (appliesTo !== undefined) updates.appliesTo = appliesTo;
   if (config !== undefined) updates.config = config;
   if (isActive !== undefined) updates.isActive = isActive;
-  const [r] = await db.update(dossierWorkflowRulesTable).set(updates).where(eq(dossierWorkflowRulesTable.id, id)).returning();
-  if (!r) {
+  const [existing] = await db.select().from(dossierWorkflowRulesTable).where(eq(dossierWorkflowRulesTable.id, id)).limit(1);
+  if (!existing) {
     res.status(404).json({ error: "Not found" });
     return;
   }
+  const [dossier] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, existing.dossierId)).limit(1);
+  if (dossier?.status === "archived") {
+    res.status(400).json({ error: ARCHIVED_DOSSIER_EDIT_MESSAGE });
+    return;
+  }
+  const [r] = await db.update(dossierWorkflowRulesTable).set(updates).where(eq(dossierWorkflowRulesTable.id, id)).returning();
   const userMap = await getUserMap();
   res.json(fmtRule(r, userMap));
 });
 
 router.delete("/workflow-rules/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  const [existing] = await db.select().from(dossierWorkflowRulesTable).where(eq(dossierWorkflowRulesTable.id, id)).limit(1);
+  if (!existing) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const [dossier] = await db.select().from(dossiersTable).where(eq(dossiersTable.id, existing.dossierId)).limit(1);
+  if (dossier?.status === "archived") {
+    res.status(400).json({ error: ARCHIVED_DOSSIER_EDIT_MESSAGE });
+    return;
+  }
   await db.delete(dossierWorkflowRulesTable).where(eq(dossierWorkflowRulesTable.id, id));
   res.status(204).end();
 });

@@ -37,6 +37,7 @@ export default function DossiersPage() {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
+  const openParentDossiers = (items as Array<{ id: number; code: string; title: string; status: string }>).filter((d) => d.status === "open");
 
   function handleCreate() {
     createDossier.mutate(
@@ -203,7 +204,7 @@ export default function DossiersPage() {
                 <SelectTrigger><SelectValue placeholder="Nessuno (fascicolo principale)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nessuno (fascicolo principale)</SelectItem>
-                  {(items as Array<{ id: number; code: string; title: string }>).map((d) => (
+                  {openParentDossiers.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>{d.code} — {d.title}</SelectItem>
                   ))}
                 </SelectContent>

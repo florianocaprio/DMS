@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { tasksTable, usersTable, protocolsTable, documentsTable, dossiersTable } from "@workspace/db";
 import { eq, lt, desc } from "drizzle-orm";
+import { firstAssociationError, firstMissingDossierId, loadDossierMap, taskAssociationError } from "../lib/dossierStatusRules";
 
 const router = Router();
 
@@ -50,6 +51,19 @@ router.get("/tasks/:id", async (req, res): Promise<void> => {
 
 router.post("/tasks", async (req, res): Promise<void> => {
   const { title, description, priority, protocolId, documentId, dossierId, assignedToId, dueDate, notes } = req.body;
+  if (dossierId) {
+    const did = Number(dossierId);
+    const dossierMap = await loadDossierMap([did]);
+    if (firstMissingDossierId([did], dossierMap) != null) {
+      res.status(404).json({ error: "Fascicolo non trovato" });
+      return;
+    }
+    const associationError = firstAssociationError([did], dossierMap, taskAssociationError);
+    if (associationError) {
+      res.status(400).json({ error: associationError });
+      return;
+    }
+  }
   const [t] = await db.insert(tasksTable).values({
     title, description, priority: priority || "normal",
     protocolId: protocolId || null, documentId: documentId || null,

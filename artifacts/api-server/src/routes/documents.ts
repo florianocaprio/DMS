@@ -5,6 +5,12 @@ import { eq, desc } from "drizzle-orm";
 import { triggerDossierWorkflows } from "../lib/dossierWorkflowEngine";
 import { getDocumentDossierSets } from "../lib/memberships";
 import { getDefaultDossierId, ensureDefaultDossier } from "../lib/ensureDefaults";
+import {
+  documentAssociationError,
+  firstAssociationError,
+  firstMissingDossierId,
+  loadDossierMap,
+} from "../lib/dossierStatusRules";
 
 const router = Router();
 
@@ -78,14 +84,25 @@ router.post("/documents", async (req, res): Promise<void> => {
   // No fascicolo selected → land in "Archivio Documenti" (default) as home.
   const homeDossierId = selected ?? defaultDossierId;
   const needsArchiveCopy = !!(defaultDossierId && homeDossierId && homeDossierId !== defaultDossierId);
+  const targetDossierIds = Array.from(new Set([
+    ...(homeDossierId != null ? [homeDossierId] : []),
+    ...(needsArchiveCopy ? [defaultDossierId!] : []),
+  ]));
+  const validatedDossierMap = await loadDossierMap(targetDossierIds);
+  const missingDossierId = firstMissingDossierId(targetDossierIds, validatedDossierMap);
+  if (missingDossierId != null) {
+    res.status(404).json({ error: `Fascicolo ${missingDossierId} non trovato` });
+    return;
+  }
+  const associationError = firstAssociationError(targetDossierIds, validatedDossierMap, documentAssociationError);
+  if (associationError) {
+    res.status(400).json({ error: associationError });
+    return;
+  }
+
   let effectiveClassificationId = classificationId ? Number(classificationId) : null;
   if (!effectiveClassificationId && homeDossierId) {
-    const [homeDossier] = await db
-      .select({ classificationId: dossiersTable.classificationId })
-      .from(dossiersTable)
-      .where(eq(dossiersTable.id, homeDossierId))
-      .limit(1);
-    effectiveClassificationId = homeDossier?.classificationId ?? null;
+    effectiveClassificationId = validatedDossierMap.get(homeDossierId)?.classificationId ?? null;
   }
 
   // Create the document and (when a fascicolo was selected) the automatic
@@ -143,6 +160,23 @@ router.patch("/documents/:id", async (req, res): Promise<void> => {
   if (tags !== undefined) updates.tags = tags;
   if (aiSummary !== undefined) updates.aiSummary = aiSummary;
   const [prev] = await db.select().from(documentsTable).where(eq(documentsTable.id, id)).limit(1);
+  if (!prev) { res.status(404).json({ error: "Not found" }); return; }
+  if (dossierId !== undefined && dossierId != null) {
+    const newDossierId = Number(dossierId);
+    const dossierMap = await loadDossierMap([newDossierId]);
+    if (firstMissingDossierId([newDossierId], dossierMap) != null) {
+      res.status(404).json({ error: "Fascicolo non trovato" });
+      return;
+    }
+    const associationError = firstAssociationError([newDossierId], dossierMap, documentAssociationError);
+    if (associationError) {
+      res.status(400).json({ error: associationError });
+      return;
+    }
+    updates.dossierId = newDossierId;
+  } else if (dossierId === null) {
+    updates.dossierId = null;
+  }
   const [doc] = await db.update(documentsTable).set(updates).where(eq(documentsTable.id, id)).returning();
   if (!doc) { res.status(404).json({ error: "Not found" }); return; }
   if (doc.dossierId && doc.dossierId !== prev?.dossierId) {
